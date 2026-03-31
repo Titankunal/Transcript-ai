@@ -199,6 +199,20 @@ def analyze_transcript(text: str, language: str = "en") -> dict:
         except ImportError:
             pass  # evaluator.py not present — use LLM count
 
+        # Hallucination prevention
+        try:
+            from hallucination_guard import verify_result
+            result = verify_result(result, text)
+        except ImportError:
+            pass
+
+        # Soft rejection detection
+        try:
+            from soft_rejection_detector import detect_soft_rejections
+            result["soft_rejections"] = detect_soft_rejections(text)
+        except ImportError:
+            pass
+
         return result
 
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):

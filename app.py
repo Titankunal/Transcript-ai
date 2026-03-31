@@ -400,16 +400,38 @@ if st.session_state.results:
 
     # ── Action Items ──
     with tab_actions:
-        st.markdown("<div class='section-header'>Action Items</div>", unsafe_allow_html=True)
         items = results.get("action_items", [])
+        verified_count = sum(1 for i in items if not i.get("hallucination_flag", False))
+        flagged_count  = sum(1 for i in items if i.get("hallucination_flag", False))
+
+        st.markdown(
+            f"<div class='section-header'>Action Items &nbsp;"
+            f"<span style='font-size:0.8rem; font-weight:400; color:#94a3b8;'>"
+            f"✅ {verified_count} verified &nbsp;·&nbsp; "
+            f"{'🚩 ' + str(flagged_count) + ' flagged' if flagged_count else '0 flagged'}"
+            f"</span></div>",
+            unsafe_allow_html=True
+        )
+
         if not items:
             st.info("No action items extracted.")
         else:
             for item in items:
+                is_flagged  = item.get("hallucination_flag", False)
+                confidence  = item.get("confidence", None)
+                flag_reason = item.get("flag_reason", "")
+                border_color = "#ef4444" if is_flagged else "#8b5cf6"
+                flag_icon    = "🚩" if is_flagged else "🔲"
+                conf_str     = f" &nbsp;·&nbsp; 🎯 <strong>Confidence:</strong> {confidence:.0%}" if confidence is not None else ""
+
                 st.markdown(
-                    f"<div class='action-item'>"
-                    f"<div class='task-text'>🔲 {item.get('task','')}</div>"
-                    f"<div class='meta-text'>👤 <strong>Owner:</strong> {item.get('owner','TBD')} &nbsp;·&nbsp; 📅 <strong>Deadline:</strong> {item.get('deadline','TBD')}</div>"
+                    f"<div class='action-item' style='border-left-color:{border_color};'>"
+                    f"<div class='task-text'>{flag_icon} {item.get('task','')}</div>"
+                    f"<div class='meta-text'>"
+                    f"👤 <strong>Owner:</strong> {item.get('owner','TBD')} &nbsp;·&nbsp; "
+                    f"📅 <strong>Deadline:</strong> {item.get('deadline','TBD')}{conf_str}"
+                    f"</div>"
+                    f"{'<div style="color:#f87171;font-size:0.78rem;margin-top:0.3rem;">⚠️ ' + flag_reason + '</div>' if is_flagged else ''}"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -465,6 +487,69 @@ if st.session_state.results:
         st.markdown(f"<div class='card'><span style='font-size:1.8rem; font-weight:700; color:#60a5fa;'>{cs}</span><span style='color:#94a3b8; font-size:0.9rem; margin-left:0.6rem;'>language switches detected mid-conversation</span></div>", unsafe_allow_html=True)
         if cs > 5:
             st.warning(f"⚡ High code-switching frequency ({cs} times) — indicates a globally-oriented team or international client.")
+
+        # Soft rejection signals
+        soft = results.get("soft_rejections", {})
+        if soft and soft.get("total_signals", 0) > 0:
+            risk = soft.get("risk_level", "NONE")
+            risk_colors = {
+                "HIGH":    "#ef4444",
+                "MEDIUM":  "#f59e0b",
+                "LOW":     "#60a5fa",
+                "MINIMAL": "#94a3b8",
+                "NONE":    "#4ade80"
+            }
+            risk_color = risk_colors.get(risk, "#94a3b8")
+
+            st.markdown(
+                f"<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>"
+                f"🎭 Soft Rejection Analysis (間接的拒否)</div>",
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f"<div class='card'>"
+                f"<span style='color:{risk_color}; font-weight:700; font-size:1rem;'>● {risk} RISK</span>"
+                f"<div style='color:#94a3b8; font-size:0.85rem; margin-top:0.4rem;'>{soft.get('risk_summary','')}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            for signal in soft.get("high_signals", []):
+                st.markdown(
+                    f"<div style='background:rgba(239,68,68,0.10); border-left:3px solid #ef4444; "
+                    f"border-radius:0 8px 8px 0; padding:0.75rem 1rem; margin-bottom:0.5rem;'>"
+                    f"<div style='color:#f87171; font-weight:600;'>🚨 {signal['phrase']} — {signal['reading']}</div>"
+                    f"<div style='color:#94a3b8; font-size:0.82rem; margin-top:0.3rem;'>Speaker: {signal['speaker']} · Confidence: {signal['confidence']:.0%}</div>"
+                    f"<div style='color:#cbd5e1; font-size:0.82rem; margin-top:0.3rem;'>{signal['explanation']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            for signal in soft.get("medium_signals", []):
+                st.markdown(
+                    f"<div style='background:rgba(245,158,11,0.10); border-left:3px solid #f59e0b; "
+                    f"border-radius:0 8px 8px 0; padding:0.75rem 1rem; margin-bottom:0.5rem;'>"
+                    f"<div style='color:#fde68a; font-weight:600;'>⚠️ {signal['phrase']} — {signal['reading']}</div>"
+                    f"<div style='color:#94a3b8; font-size:0.82rem; margin-top:0.3rem;'>Speaker: {signal['speaker']} · Confidence: {signal['confidence']:.0%}</div>"
+                    f"<div style='color:#cbd5e1; font-size:0.82rem; margin-top:0.3rem;'>{signal['explanation']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            for signal in soft.get("low_signals", []):
+                st.markdown(
+                    f"<div class='highlight-box'>"
+                    f"💡 <strong>{signal['phrase']}</strong> — {signal['reading']} "
+                    f"<span style='color:#94a3b8; font-size:0.8rem;'>(Speaker: {signal['speaker']})</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            st.markdown(
+                f"<div style='color:#64748b; font-size:0.78rem; font-style:italic; margin-top:0.5rem;'>"
+                f"💬 {soft.get('cultural_note','')}</div>",
+                unsafe_allow_html=True
+            )
 
         # PII detail
         if pii_report and pii_report.get("total_pii_found", 0) > 0:

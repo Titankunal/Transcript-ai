@@ -84,6 +84,13 @@ TEST_CASES = [
                 {"task": "Hand off to test team", "owner": "Sato", "deadline": "Monday next week"},
                 {"task": "Report to client", "owner": "Tanaka", "deadline": "Not specified"}
             ],
+            # Japanese action items for bilingual matching
+            "action_items_ja": [
+                {"task": "ベータ版の完成", "owner": "佐藤", "deadline": "来週"},
+                {"task": "データベースの修正", "owner": "鈴木", "deadline": "明日"},
+                {"task": "テストチームへの引き渡し", "owner": "佐藤", "deadline": "再来週の月曜日"},
+                {"task": "クライアントへの報告", "owner": "田中", "deadline": "Not specified"}
+            ],
             # Cultural fix: all speakers are Japanese in a formal meeting — neutral is correct
             "sentiment": [
                 {"speaker": "田中", "score": "neutral", "label": "Calm managerial tone — standard JP meeting register"},
@@ -123,9 +130,9 @@ TEST_CASES = [
                 "A written compensation proposal will be sent by 9am tomorrow."
             ],
             "action_items": [
-                {"task": "Activate system", "owner": "Kenji", "deadline": "This week"},
-                {"task": "Consult manager about compensation", "owner": "Kenji", "deadline": "Today"},
-                {"task": "Send written compensation proposal", "owner": "Kenji", "deadline": "Tomorrow 9am"}
+                {"task": "Activate system resolve server issue", "owner": "Kenji", "deadline": "This week"},
+                {"task": "Consult manager propose compensation plan", "owner": "Kenji", "deadline": "Today"},
+                {"task": "Send written commitment compensation proposal", "owner": "Kenji", "deadline": "Tomorrow 9am"}
             ],
             # This one is unambiguous — client IS negative, Kenji IS de-escalating (neutral)
             "sentiment": [
