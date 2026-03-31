@@ -1,23 +1,51 @@
 # analyzer.py
 # Core AI analysis pipeline for TranscriptAI
-# Calls Ollama locally, falls back to mock data on cloud deployment.
+#
+# ── PROVIDER STRATEGY ────────────────────────────────────────────────────────
+#
+#   LOCAL (default):   Ollama + qwen3:8b
+#                      Zero cost, APPI compliant, 60-120 sec/analysis
+#                      Best for: development, sensitive data, no internet
+#
+#   CLOUD FREE:        Groq API + llama-3.1-8b-instant
+#                      Zero cost (500 req/day free tier), ~3 sec/analysis
+#                      Best for: deployed version, demos, interviews
+#                      Get free key: console.groq.com → API Keys
+#
+#   SWAP IN ONE LINE:  Change PROVIDER = "ollama" to PROVIDER = "groq"
+#                      Nothing else changes. JSON schema is identical.
+#
+# ── INTERVIEW ANSWER ──────────────────────────────────────────────────────────
+#   "I chose Ollama for zero cost and APPI compliance during development.
+#    For production speed I use Groq's free tier — same zero cost,
+#    10x faster, and the provider swap is literally one line change
+#    because the JSON schema contract is identical."
+# ─────────────────────────────────────────────────────────────────────────────
 
 import json
 import os
 import re
 import requests
 
-# ── CONFIG ───────────────────────────────────────────────────────────────────
+# ── CONFIG ────────────────────────────────────────────────────────────────────
+# Change this one line to switch providers:
+PROVIDER = os.getenv("TRANSCRIPT_AI_PROVIDER", "ollama")  # "ollama" | "groq"
+
+# Ollama settings (local, free)
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL      = "qwen3:8b"   # swap to "qwen3:30b" for higher quality (needs good GPU)
+OLLAMA_MODEL = "qwen3:8b"
+
+# Groq settings (cloud, free tier)
+# Get your free key at: https://console.groq.com
+# Set env var: GROQ_API_KEY=your_key_here
+# Or add to .streamlit/secrets.toml: GROQ_API_KEY = "your_key_here"
+GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.1-8b-instant"   # free, fast, strong JA/EN
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def _summary_instruction(text: str) -> str:
-    """
-    Dynamically decide how many summary bullets to request
-    based on transcript length. Short = 3, medium = 5, long = 7+.
-    """
+    """Dynamic summary length based on transcript word count."""
     words = len(text.split())
     if words < 200:
         return "summary: write 3 concise bullet points covering the key topics"
@@ -28,30 +56,28 @@ def _summary_instruction(text: str) -> str:
     else:
         return (
             "summary: write as many bullet points as needed (minimum 8) to fully cover "
-            "every major topic, decision, concern, and outcome discussed. "
-            "Do NOT compress multiple topics into one bullet."
+            "every major topic, decision, concern, and outcome. Do NOT compress multiple topics into one bullet."
         )
 
 
 def build_prompt(text: str, language: str) -> str:
     lang_hint = (
         "The transcript may contain Japanese (日本語) and English mixed together. "
-        "Detect and handle both languages. Extract Japanese phrases as-is for nemawashi signals."
+        "Detect and handle both. Extract Japanese phrases as-is for nemawashi signals."
         if language in ("ja", "mixed")
         else "The transcript is in English."
     )
-
     summary_rule = _summary_instruction(text)
 
     return f"""You are an expert meeting analyst specializing in Japanese business culture.
 {lang_hint}
 
-Analyze the following meeting transcript and return ONLY a valid JSON object.
-No explanation, no markdown, no backticks — just the raw JSON.
+Analyze the transcript and return ONLY a valid JSON object.
+No explanation, no markdown, no backticks — raw JSON only.
 
-The JSON must follow this exact schema:
+Schema:
 {{
-  "summary": ["bullet point 1", "bullet point 2", "...as many as needed"],
+  "summary": ["bullet 1", "bullet 2", "...as many as needed"],
   "action_items": [
     {{"task": "description", "owner": "person name", "deadline": "date or 'Not specified'"}}
   ],
@@ -70,27 +96,83 @@ The JSON must follow this exact schema:
 
 Rules:
 - {summary_rule}
-- action_items: list EVERY concrete task, request, or commitment mentioned — even implied ones
-- sentiment: one entry per unique speaker found in transcript
-- speakers: talk_time_pct values must sum to exactly 100
-- japan_insights.nemawashi_signals: extract ACTUAL phrases from the transcript showing
-  indirect agreement, hesitation, or soft refusal (e.g. そうですね, 検討します, 難しいかもしれません,
-  前向きに検討, なるほど, 承知しました). Empty list [] if none found.
-- japan_insights.code_switch_count: count how many times language switches between JA and EN
-- Return ONLY the JSON object. No other text whatsoever.
+- action_items: list EVERY task, request, or commitment — even implied ones
+- sentiment: one entry per unique speaker
+- speakers: talk_time_pct values must sum to 100
+- nemawashi_signals: actual phrases showing indirect agreement/hesitation/soft refusal
+- code_switch_count: count JA↔EN language switches
+- Return ONLY the JSON. No other text.
 
 TRANSCRIPT:
 {text}
 """
 
 
+def _call_ollama(prompt: str, max_tokens: int) -> str:
+    """Call local Ollama. Returns raw response string."""
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model":  OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.2, "num_predict": max_tokens},
+            "think":  False
+        },
+        timeout=300
+    )
+    response.raise_for_status()
+    return response.json().get("response", "")
+
+
+def _call_groq(prompt: str, max_tokens: int) -> str:
+    """
+    Call Groq free API. Returns raw response string.
+    Free tier: 500 requests/day, ~3 sec response time.
+    Get key: https://console.groq.com
+    """
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("groq_api_key")
+
+    # Also try Streamlit secrets
+    if not api_key:
+        try:
+            import streamlit as st
+            api_key = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+
+    if not api_key:
+        raise ValueError(
+            "GROQ_API_KEY not found. "
+            "Set env var: export GROQ_API_KEY=your_key "
+            "Or add to .streamlit/secrets.toml: GROQ_API_KEY = 'your_key' "
+            "Get free key at: https://console.groq.com"
+        )
+
+    response = requests.post(
+        GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type":  "application/json"
+        },
+        json={
+            "model":       GROQ_MODEL,
+            "messages":    [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "max_tokens":  max_tokens,
+        },
+        timeout=30   # Groq is fast — 30 sec is generous
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+
 def _mock_response(text: str) -> dict:
     """
-    Returns realistic demo data when Ollama is unavailable (e.g. Streamlit Cloud).
-    Number of summary bullets scales with transcript length.
+    Realistic mock data when no LLM is available (Streamlit Cloud without API key).
+    Scales summary bullets with transcript length.
     """
     words = len(text.split())
-
     if words < 200:
         summary = [
             "The team discussed Q3 project progress and confirmed key deadlines.",
@@ -99,7 +181,7 @@ def _mock_response(text: str) -> dict:
         ]
     elif words < 600:
         summary = [
-            "The meeting opened with a Q3 progress review showing strong KPI performance at 98% of target.",
+            "The meeting opened with a Q3 progress review showing KPI performance at 98% of target.",
             "Concerns were raised about the new feature release schedule and potential delays.",
             "Budget adjustments were discussed and require sign-off from the technical team.",
             "Action items were clearly assigned with deadlines ranging from today to next Friday.",
@@ -107,28 +189,28 @@ def _mock_response(text: str) -> dict:
         ]
     else:
         summary = [
-            "The meeting opened with a Q3 progress review showing strong KPI performance at 98% of target.",
-            "Concerns were raised about the new feature release schedule and a possible buffer needed.",
-            "鈴木 expressed indirect hesitation about the April 1st deadline using nemawashi language.",
-            "Budget adjustments were discussed — final confirmation required from the technical team by Monday.",
-            "Customer feedback volume has increased, prompting a proposal to expand the support team.",
-            "Support manual revision was identified as a parallel workstream to the team expansion.",
-            "All action items were formally assigned with clear owners and deadlines.",
-            "Next sync confirmed for Friday 15:00 — Tanaka responsible for meeting minutes."
+            "The meeting opened with a Q3 progress review showing KPI performance at 98% of target.",
+            "Concerns were raised about the new feature release schedule.",
+            "鈴木 expressed indirect hesitation using nemawashi language.",
+            "Budget adjustments require final confirmation from the technical team by Monday.",
+            "Customer feedback volume has increased — support team expansion proposed.",
+            "Support manual revision identified as a parallel workstream.",
+            "All action items formally assigned with clear owners and deadlines.",
+            "Next sync confirmed for Friday 15:00 — Tanaka responsible for minutes."
         ]
 
     return {
         "summary": summary,
         "action_items": [
-            {"task": "Confirm release schedule buffer", "owner": "Suzuki", "deadline": "Monday"},
-            {"task": "Review financial section of Q3 report", "owner": "Tanaka", "deadline": "Thursday"},
-            {"task": "Send delay notification email to client", "owner": "Sato", "deadline": "Today"},
+            {"task": "Confirm release schedule", "owner": "Suzuki", "deadline": "Monday"},
+            {"task": "Review Q3 report financial section", "owner": "Tanaka", "deadline": "Thursday"},
+            {"task": "Send delay notification to client", "owner": "Sato", "deadline": "Today"},
             {"task": "Draft support manual revision", "owner": "Suzuki", "deadline": "Friday"},
             {"task": "Prepare meeting minutes", "owner": "Tanaka", "deadline": "Friday 15:00"}
         ],
         "sentiment": [
-            {"speaker": "Tanaka", "score": "positive", "label": "Professional and collaborative tone"},
-            {"speaker": "Suzuki", "score": "neutral", "label": "Cautiously cooperative, indirect hesitation"}
+            {"speaker": "Tanaka", "score": "positive", "label": "Professional and collaborative"},
+            {"speaker": "Suzuki", "score": "neutral",  "label": "Cautiously cooperative"}
         ],
         "speakers": [
             {"name": "Tanaka", "talk_time_pct": 55, "tone": "formal"},
@@ -136,10 +218,7 @@ def _mock_response(text: str) -> dict:
         ],
         "japan_insights": {
             "keigo_level": "high",
-            "nemawashi_signals": [
-                "そうですね", "検討いたします", "難しいかもしれません",
-                "前向きに対応したいと思います", "承知しました"
-            ],
+            "nemawashi_signals": ["そうですね", "検討いたします", "難しいかもしれません", "前向きに対応"],
             "code_switch_count": 4
         }
     }
@@ -147,76 +226,79 @@ def _mock_response(text: str) -> dict:
 
 def analyze_transcript(text: str, language: str = "en") -> dict:
     """
-    Analyzes a transcript using local Ollama.
-    Automatically falls back to mock data if Ollama is unreachable.
+    Analyzes a transcript using the configured LLM provider.
 
-    To swap LLM provider (one function replacement):
-      - Gemini:  google.generativeai call
-      - Claude:  anthropic.Anthropic().messages.create(...)
-      - OpenAI:  openai.chat.completions.create(...)
-    JSON schema stays identical — nothing else in the app changes.
+    Provider selection (PROVIDER env var or config above):
+      "ollama" → local Ollama (default, zero cost, APPI compliant)
+      "groq"   → Groq free API (zero cost, 10x faster, needs GROQ_API_KEY)
+
+    Falls back to mock data if no LLM is reachable.
+
+    JSON schema is IDENTICAL regardless of provider.
+    Swapping providers requires changing one line — nothing else.
     """
-    prompt = build_prompt(text, language)
+    prompt     = build_prompt(text, language)
+    max_tokens = min(2048, max(1024, len(text.split()) * 3))
 
-    # Increase token budget for longer transcripts
-    words = len(text.split())
-    max_tokens = min(2048, max(1024, words * 3))
+    raw = ""
+    provider_used = PROVIDER
 
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "num_predict": max_tokens,
-                },
-                "think": False
-            },
-            timeout=300
-        )
-        response.raise_for_status()
-        raw = response.json().get("response", "")
+        if PROVIDER == "groq":
+            raw = _call_groq(prompt, max_tokens)
+        else:
+            raw = _call_ollama(prompt, max_tokens)
 
-        # Strip qwen3 <think>...</think> blocks and markdown fences
+        # Strip qwen3 thinking blocks and markdown fences
         raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
         raw = re.sub(r"```(?:json)?", "", raw).strip()
 
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
-            raise ValueError("No JSON object found in model response")
+            raise ValueError("No JSON object in model response")
 
         result = json.loads(match.group())
         result = _validate_and_fill(result)
 
-        # Fix 1: override LLM code-switch count with deterministic rule-based count
+        # Fix 1: rule-based code-switch (overrides LLM count)
         try:
             from evaluator import count_code_switches
             result["japan_insights"]["code_switch_count"] = count_code_switches(text)
             result["japan_insights"]["code_switch_source"] = "rule_based"
         except ImportError:
-            pass  # evaluator.py not present — use LLM count
+            pass
 
-        # Hallucination prevention
+        # Fix 2: hallucination prevention (rule-based, NOT LLM)
         try:
             from hallucination_guard import verify_result
             result = verify_result(result, text)
         except ImportError:
             pass
 
-        # Soft rejection detection
+        # Fix 3: soft rejection detection
         try:
             from soft_rejection_detector import detect_soft_rejections
             result["soft_rejections"] = detect_soft_rejections(text)
         except ImportError:
             pass
 
+        result["_provider"] = provider_used
         return result
 
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        return _mock_response(text)
+        # Ollama not running — fall back to mock
+        result = _mock_response(text)
+        result["_provider"] = "mock"
+        return result
+
+    except ValueError as e:
+        if "GROQ_API_KEY" in str(e):
+            # No Groq key — fall back to mock
+            result = _mock_response(text)
+            result["_provider"] = "mock_no_key"
+            return result
+        raise
+
     except json.JSONDecodeError as e:
         raise ValueError(f"Model returned invalid JSON: {e}\n\nRaw:\n{raw[:500]}")
 
@@ -234,7 +316,6 @@ def _validate_and_fill(data: dict) -> dict:
     ji.setdefault("nemawashi_signals", [])
     ji.setdefault("code_switch_count", 0)
 
-    # Normalize talk_time_pct to sum to 100
     speakers = data["speakers"]
     if speakers:
         total = sum(s.get("talk_time_pct", 0) for s in speakers)
@@ -247,21 +328,23 @@ def _validate_and_fill(data: dict) -> dict:
 
 # ── QUICK TEST ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    import sys
+    # Allow testing Groq: python analyzer.py groq
+    if len(sys.argv) > 1 and sys.argv[1] == "groq":
+        os.environ["TRANSCRIPT_AI_PROVIDER"] = "groq"
+        print("Testing with Groq provider...")
+    else:
+        print(f"Testing with {PROVIDER} provider...")
+
     sample = """
-    田中: おはようございます、田中です。本日はお時間をいただきありがとうございます。
-    鈴木: こちらこそ、よろしくお願いいたします。鈴木です。
-    田中: まず、Q4の進捗についてご報告させていただきます。売上KPIは現時点で目標の98%に達しており、ほぼ計画通りです。
-    鈴木: そうですね、順調に進んでいるようで安心しました。ただ、新機能のリリーススケジュールについては、少し懸念がございます。
-    田中: Yes, I understand your concern. The release is scheduled for April 1st, but we may need a buffer.
-    鈴木: 検討いたします。技術チームとも相談してみますが、難しいかもしれません。できれば前向きに対応したいと思います。
-    田中: Understood. では、リリース日を鈴木さんの方でサインオフをいただければ、我々は準備を進めます。
-    鈴木: 承知しました。来週の月曜日までに確認いたします。
-    田中: ありがとうございます。次に、顧客からのフィードバック対応についてですが、サポートチームの増員が必要だと考えています。
-    鈴木: そうですね、確認してみます。サポートマニュアルの改訂も同時に進めた方が良いかもしれません。
-    田中: 同感です。鈴木さん、マニュアルのドラフト作成をお願いできますか？来週の金曜日までにレビュー用に提出していただければ。
-    鈴木: かしこまりました。対応いたします。
-    田中: では、次回のミーティングは来週金曜日の15:00に設定しましょう。議事録は田中が担当します。
-    鈴木: 承知いたしました。本日はありがとうございました。
+    田中: おはようございます。今日のプロジェクト更新について話しましょう。
+    Sato: Good morning. Yes, the Q3 report is almost ready.
+    田中: そうですね。Deadline is next Friday, right?
+    Sato: Correct. I will handle the financial section. Can you review by Thursday?
+    田中: 検討します。Also, we need to inform the client about the delay.
+    Sato: Understood. I will send them an email today.
+    田中: ありがとうございます。Let's sync again tomorrow morning.
     """
     result = analyze_transcript(sample, language="mixed")
+    print(f"Provider used: {result.get('_provider', 'unknown')}")
     print(json.dumps(result, indent=2, ensure_ascii=False))

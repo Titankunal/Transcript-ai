@@ -1,19 +1,47 @@
 # hallucination_guard.py
 # Hallucination Prevention Layer for TranscriptAI
 #
-# Problem: LLMs sometimes invent action items, owners, deadlines, or
-# sentiment labels that have no grounding in the actual transcript.
+# ══════════════════════════════════════════════════════════════════
+# CRITICAL DESIGN DECISION — READ BEFORE MODIFYING:
 #
-# Solution: After LLM analysis, verify every claim against the transcript
-# using three techniques:
-#   1. Keyword grounding — does the task/owner/deadline appear in transcript?
-#   2. Semantic grounding — is the concept present even if different words?
-#   3. Confidence scoring — flag low-confidence outputs instead of silently passing them
+# This guard is 100% RULE-BASED. It does NOT use any LLM.
+#
+# Why this matters:
+#   If the LLM validated its own output, it could "hallucinate
+#   that the hallucination is correct" — a circular grading trap.
+#   This guard is completely independent of the model.
+#
+# How it works:
+#   Every claim is verified against the ORIGINAL transcript using
+#   deterministic token overlap scoring:
+#
+#     overlap_score = |claim_tokens ∩ transcript_tokens|
+#                     ─────────────────────────────────
+#                          |claim_tokens|
+#
+#   No LLM involved. No model calls. Pure Python math.
+#   The transcript is the ground truth — not the model.
+#
+# Interview answer:
+#   "The hallucination guard is entirely rule-based — Unicode-aware
+#    token overlap scoring against the original transcript. The LLM
+#    never validates its own output. The guard is completely
+#    independent of the model."
+# ══════════════════════════════════════════════════════════════════
 #
 # Architecture:
-#   transcript → LLM → raw_result → hallucination_guard → verified_result
-#                                         ↑
-#                              removes/flags hallucinated fields
+#   transcript ──────────────────────────────────────────┐
+#       ↓                                                │ (ground truth)
+#   LLM Analysis                                         │
+#       ↓                                                │
+#   raw_result ──→ hallucination_guard (RULE-BASED) ←───┘
+#                         ↓
+#               verified_result (with confidence scores)
+#
+# Three verification checks (all deterministic):
+#   1. Keyword grounding  — token overlap between claim and transcript
+#   2. Speaker grounding  — speaker name extracted from transcript labels
+#   3. Confidence scoring — weighted score per field, flag if below threshold
 
 import re
 import unicodedata
