@@ -104,29 +104,74 @@ def semantic_similarity(text_a: str, text_b: str) -> float:
     return _cosine_manual(vectors[0], vectors[1])
 
 
+# Cross-language keyword bridge
+# Maps common English action-item words to Japanese equivalents
+# Solves: TF-IDF 0.000 when claim is EN but transcript is JA
+EN_JA_BRIDGE = {
+    "prepare":    ["準備", "作成", "まとめ"],
+    "submit":     ["提出", "再提出", "送る"],
+    "report":     ["報告", "レポート", "議事録"],
+    "review":     ["確認", "レビュー", "検討"],
+    "send":       ["送る", "送信", "共有"],
+    "confirm":    ["確認", "承認"],
+    "schedule":   ["設定", "スケジュール"],
+    "discuss":    ["議論", "話し合い", "相談"],
+    "proposal":   ["提案", "修正案"],
+    "risk":       ["リスク", "懸念"],
+    "management": ["管理", "マネジメント"],
+    "security":   ["セキュリティ", "安全"],
+    "audit":      ["監査", "確認"],
+    "budget":     ["予算"],
+    "meeting":    ["ミーティング", "会議"],
+    "document":   ["資料", "ドキュメント"],
+    "materials":  ["資料", "補足"],
+}
+
+
+def _enrich_claim(claim: str) -> str:
+    """
+    Enriches English claim with Japanese equivalents.
+    Allows TF-IDF to find cross-language matches.
+    e.g. "submit proposal" → "submit proposal 提出 提案 修正案"
+    """
+    words = claim.lower().split()
+    extras = []
+    for word in words:
+        clean = re.sub(r"[^a-z]", "", word)
+        if clean in EN_JA_BRIDGE:
+            extras.extend(EN_JA_BRIDGE[clean])
+    if extras:
+        return claim + " " + " ".join(extras)
+    return claim
+
+
 def semantic_grounding_score(claim: str, transcript: str,
                               window_size: int = 200) -> float:
     """
     Checks if a claim is semantically grounded in the transcript.
-    Uses sliding window — finds the most relevant passage, not whole transcript.
+    Uses sliding window + cross-language enrichment.
 
-    This prevents long transcripts from diluting short claim matches.
+    Fixes:
+    - Cross-language: English claim vs Japanese transcript now works
+    - Sliding window: long transcripts don't dilute short matches
     """
     if not claim or not transcript:
         return 0.0
 
-    # Sliding window over transcript
-    words  = transcript.split()
+    # Enrich claim with Japanese equivalents for cross-language matching
+    enriched_claim = _enrich_claim(claim)
+
+    words = transcript.split()
     if len(words) <= window_size:
-        return semantic_similarity(claim, transcript)
+        return semantic_similarity(enriched_claim, transcript)
 
     best_score = 0.0
     step       = window_size // 2
     for i in range(0, len(words) - window_size + 1, step):
         window = " ".join(words[i:i + window_size])
-        score  = semantic_similarity(claim, window)
+        score  = semantic_similarity(enriched_claim, window)
         best_score = max(best_score, score)
-        if best_score > 0.7:  # early exit if strong match found
+        if best_score > 0.7:
             break
 
     return best_score

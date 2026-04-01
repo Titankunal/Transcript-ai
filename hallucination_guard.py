@@ -128,14 +128,16 @@ THRESHOLDS = {
 def verify_action_items(action_items: list, transcript: str) -> dict:
     """
     Verifies each action item against the transcript.
-
-    For each item checks:
-    - Task description has grounding in transcript
-    - Owner name appears in transcript
-    - Deadline has grounding (or is explicitly "Not specified")
-
-    Returns verified items + flagged hallucinations + confidence scores.
+    Fix 4: Unified confidence score combining token overlap + semantic similarity.
+    Single score replaces two conflicting scores.
     """
+    # Try semantic validator for cross-language grounding
+    try:
+        from semantic_validator import semantic_grounding_score
+        USE_SEMANTIC = True
+    except ImportError:
+        USE_SEMANTIC = False
+
     verified   = []
     flagged    = []
     confidence_scores = []
@@ -152,9 +154,17 @@ def verify_action_items(action_items: list, transcript: str) -> dict:
             else _overlap_score(deadline, transcript)
         )
 
-        # Weighted confidence: task matters most
+        # Semantic score for cross-language grounding
+        semantic_score = 0.0
+        if USE_SEMANTIC:
+            semantic_score = semantic_grounding_score(task, transcript)
+
+        # Fix 4: Unified confidence — best of token overlap OR semantic
+        # This prevents conflicting scores confusing the user
+        effective_task_score = max(task_score, semantic_score)
+
         confidence = round(
-            0.60 * task_score +
+            0.60 * effective_task_score +
             0.30 * owner_score +
             0.10 * deadline_score,
             3
@@ -162,15 +172,17 @@ def verify_action_items(action_items: list, transcript: str) -> dict:
 
         item_with_score = {
             **item,
-            "confidence":      confidence,
+            "confidence": confidence,
             "grounding": {
-                "task_score":     task_score,
-                "owner_score":    owner_score,
-                "deadline_score": deadline_score
+                "task_token_overlap": task_score,
+                "task_semantic":      round(semantic_score, 3) if USE_SEMANTIC else None,
+                "task_effective":     round(effective_task_score, 3),
+                "owner_score":        owner_score,
+                "deadline_score":     deadline_score
             }
         }
 
-        if task_score < THRESHOLDS["action_task"]:
+        if effective_task_score < THRESHOLDS["action_task"]:
             item_with_score["hallucination_flag"] = True
             item_with_score["flag_reason"] = (
                 f"Task '{task[:40]}' has low transcript grounding "

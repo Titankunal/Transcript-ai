@@ -35,17 +35,39 @@ for kanji, romaji_list in KNOWN_NAME_PAIRS.items():
         _ROMAJI_TO_KANJI[r.lower()] = kanji
 
 
+# Pure role-only labels to skip entirely
+ROLE_ONLY_LABELS = {
+    "director", "pm", "manager", "lead", "dev", "developer",
+    "engineer", "sales", "hr", "cto", "ceo", "coo", "vp",
+    "部長", "課長", "係長", "主任", "社長", "専務", "常務",
+    "backend", "frontend", "backend dev", "frontend dev",
+}
+
+
 def normalize_speaker_name(raw: str) -> str:
     """
     Strips role suffixes and normalizes speaker name.
     "Tanaka (Director)" → "Tanaka"
-    "田中部長" → "田中"
-    "Sato-san" → "Sato"
+    "田中部長"          → "田中"
+    "Sato-san"          → "Sato"
+    "(PM)"              → "" (role-only, will be filtered)
+    "Dev)"              → "" (malformed role label)
     """
     name = raw.strip()
+
+    # Strip malformed labels starting with ( or ending with )
+    name = re.sub(r"^[(]|[)]$", "", name).strip()
+
+    # Apply role pattern stripping
     for pattern in ROLE_PATTERNS:
         name = re.sub(pattern, "", name, flags=re.IGNORECASE)
-    return name.strip()
+    name = name.strip()
+
+    # If what remains is a pure role label, return empty string
+    if name.lower() in ROLE_ONLY_LABELS:
+        return ""
+
+    return name
 
 
 def extract_all_speakers(transcript: str) -> dict:
@@ -68,10 +90,11 @@ def extract_all_speakers(transcript: str) -> dict:
     for match in pattern.finditer(transcript):
         raw = match.group(1).strip()
         # Skip timestamps like "00:01"
-        if re.match(r"^\d+$", raw):
+        if re.match(r"^[0-9]+$", raw):
             continue
         normalized = normalize_speaker_name(raw)
-        if normalized and len(normalized) > 0:
+        # Skip empty (role-only) and very short labels
+        if normalized and len(normalized) >= 2:
             speakers[normalized] = raw
     return speakers
 
