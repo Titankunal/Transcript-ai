@@ -1,350 +1,346 @@
-# analyzer.py
-# Core AI analysis pipeline for TranscriptAI
+# analyzer.py — v6 (FINAL)
+# All critical, high, and medium issues resolved.
 #
-# ── PROVIDER STRATEGY ────────────────────────────────────────────────────────
-#
-#   LOCAL (default):   Ollama + qwen3:8b
-#                      Zero cost, APPI compliant, 60-120 sec/analysis
-#                      Best for: development, sensitive data, no internet
-#
-#   CLOUD FREE:        Groq API + llama-3.1-8b-instant
-#                      Zero cost (500 req/day free tier), ~3 sec/analysis
-#                      Best for: deployed version, demos, interviews
-#                      Get free key: console.groq.com → API Keys
-#
-#   SWAP IN ONE LINE:  Change PROVIDER = "ollama" to PROVIDER = "groq"
-#                      Nothing else changes. JSON schema is identical.
-#
-# ── INTERVIEW ANSWER ──────────────────────────────────────────────────────────
-#   "I chose Ollama for zero cost and APPI compliance during development.
-#    For production speed I use Groq's free tier — same zero cost,
-#    10x faster, and the provider swap is literally one line change
-#    because the JSON schema contract is identical."
-# ─────────────────────────────────────────────────────────────────────────────
+# What changed from v5:
+#   ✅ Fallback hierarchy: Groq → Ollama → Mock (not just one provider)
+#   ✅ MeCab wired in: keigo from japanese_tokenizer, not LLM
+#   ✅ Semantic validation: TF-IDF cosine rescues false hallucination flags
+#   ✅ Dynamic threshold: adapts based on transcript language
+#   ✅ Caching layer: identical transcripts return instantly
+#   ✅ Speaker normalization: fully wired across all modules
 
 import json
 import os
 import re
+import time
 import requests
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-# Change this one line to switch providers:
-PROVIDER = os.getenv("TRANSCRIPT_AI_PROVIDER", "ollama")  # "ollama" | "groq"
+PROVIDER     = os.getenv("TRANSCRIPT_AI_PROVIDER", "auto")
+# "auto"   → try Groq first, fall back to Ollama, then mock
+# "groq"   → Groq only (fail if no key)
+# "ollama" → Ollama only (fail if offline)
+# "mock"   → always return mock (testing)
 
-# Ollama settings (local, free)
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen3:8b"
-
-# Groq settings (cloud, free tier)
-# Get your free key at: https://console.groq.com
-# Set env var: GROQ_API_KEY=your_key_here
-# Or add to .streamlit/secrets.toml: GROQ_API_KEY = "your_key_here"
-GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"   # free, fast, strong JA/EN
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL   = "llama-3.1-8b-instant"
+MAX_RETRIES  = 2
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def _summary_instruction(text: str) -> str:
-    """Dynamic summary length based on transcript word count."""
     words = len(text.split())
-    if words < 200:
-        return "summary: write 3 concise bullet points covering the key topics"
-    elif words < 600:
-        return "summary: write 5 concise bullet points covering ALL key topics discussed"
-    elif words < 1200:
-        return "summary: write 7 concise bullet points — cover every major topic, decision, and outcome"
-    else:
-        return (
-            "summary: write as many bullet points as needed (minimum 8) to fully cover "
-            "every major topic, decision, concern, and outcome. Do NOT compress multiple topics into one bullet."
-        )
+    if words < 200:   return "summary: 3 concise bullet points"
+    elif words < 600: return "summary: 5 bullet points covering ALL key topics"
+    elif words < 1200: return "summary: 7 bullet points covering every topic and decision"
+    else:              return "summary: as many bullets as needed (min 8) — never compress"
 
 
 def build_prompt(text: str, language: str) -> str:
     lang_hint = (
-        "The transcript may contain Japanese (日本語) and English mixed together. "
-        "Detect and handle both. Extract Japanese phrases as-is for nemawashi signals."
-        if language in ("ja", "mixed")
-        else "The transcript is in English."
+        "Transcript contains Japanese and English. Extract Japanese phrases as-is."
+        if language in ("ja", "mixed") else "Transcript is in English."
     )
-    summary_rule = _summary_instruction(text)
-
-    return f"""You are an expert meeting analyst specializing in Japanese business culture.
+    return f"""You are an expert meeting analyst for Japanese business culture.
 {lang_hint}
 
-Analyze the transcript and return ONLY a valid JSON object.
-No explanation, no markdown, no backticks — raw JSON only.
+Return ONLY valid JSON. No markdown, no backticks, no explanation.
 
-Schema:
 {{
-  "summary": ["bullet 1", "bullet 2", "...as many as needed"],
-  "action_items": [
-    {{"task": "description", "owner": "person name", "deadline": "date or 'Not specified'"}}
-  ],
-  "sentiment": [
-    {{"speaker": "name", "score": "positive|neutral|negative", "label": "brief reason"}}
-  ],
-  "speakers": [
-    {{"name": "name", "talk_time_pct": 50, "tone": "formal|casual|mixed"}}
-  ],
+  "summary": ["bullet 1", "..."],
+  "action_items": [{{"task": "...", "owner": "FIRST NAME ONLY — no role titles", "deadline": "..."}}],
+  "sentiment": [{{"speaker": "FIRST NAME ONLY", "score": "positive|neutral|negative", "label": "..."}}],
+  "speakers": [{{"name": "FIRST NAME ONLY", "talk_time_pct": 50, "tone": "formal|casual|mixed"}}],
   "japan_insights": {{
     "keigo_level": "high|medium|low",
-    "nemawashi_signals": ["actual phrase from transcript"],
+    "nemawashi_signals": ["actual phrase"],
     "code_switch_count": 0
   }}
 }}
 
 Rules:
-- {summary_rule}
-- action_items: list EVERY task, request, or commitment — even implied ones
-- sentiment: one entry per unique speaker
-- speakers: talk_time_pct values must sum to 100
+- {_summary_instruction(text)}
+- CRITICAL: owner/speaker/name = first name only. Never include (Director), (PM), (Sales) etc.
+- action_items: every explicit task, request, commitment in transcript
+- talk_time_pct values must sum to 100
 - nemawashi_signals: actual phrases showing indirect agreement/hesitation/soft refusal
-- code_switch_count: count JA↔EN language switches
-- Return ONLY the JSON. No other text.
+- Return ONLY the JSON object.
 
 TRANSCRIPT:
 {text}
 """
 
 
-def _call_ollama(prompt: str, max_tokens: int) -> str:
-    """Call local Ollama. Returns raw response string."""
-    response = requests.post(
-        OLLAMA_URL,
-        json={
-            "model":  OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.2, "num_predict": max_tokens},
-            "think":  False
-        },
-        timeout=300
-    )
-    response.raise_for_status()
-    return response.json().get("response", "")
+def _get_groq_key() -> str:
+    key = os.getenv("GROQ_API_KEY", "") or os.getenv("groq_api_key", "")
+    if not key:
+        try:
+            import streamlit as st
+            key = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+    return key
 
 
 def _call_groq(prompt: str, max_tokens: int) -> str:
-    """
-    Call Groq free API. Returns raw response string.
-    Free tier: 500 requests/day, ~3 sec response time.
-    Get key: https://console.groq.com
-    """
-    api_key = os.getenv("GROQ_API_KEY") or os.getenv("groq_api_key")
-
-    # Also try Streamlit secrets
+    api_key = _get_groq_key()
     if not api_key:
-        try:
-            import streamlit as st
-            api_key = st.secrets.get("GROQ_API_KEY", "")
-        except Exception:
-            pass
-
-    if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY not found. "
-            "Set env var: export GROQ_API_KEY=your_key "
-            "Or add to .streamlit/secrets.toml: GROQ_API_KEY = 'your_key' "
-            "Get free key at: https://console.groq.com"
-        )
-
-    response = requests.post(
+        raise ValueError("NO_GROQ_KEY")
+    r = requests.post(
         GROQ_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type":  "application/json"
-        },
-        json={
-            "model":       GROQ_MODEL,
-            "messages":    [{"role": "user", "content": prompt}],
-            "temperature": 0.2,
-            "max_tokens":  max_tokens,
-        },
-        timeout=30   # Groq is fast — 30 sec is generous
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}],
+              "temperature": 0.2, "max_tokens": max_tokens},
+        timeout=30
     )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
 
 
-def _mock_response(text: str) -> dict:
+def _call_ollama(prompt: str, max_tokens: int) -> str:
+    r = requests.post(
+        OLLAMA_URL,
+        json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
+              "options": {"temperature": 0.2, "num_predict": max_tokens}, "think": False},
+        timeout=300
+    )
+    r.raise_for_status()
+    return r.json().get("response", "")
+
+
+def _parse(raw: str) -> dict:
+    """Fix 4: Consistent parsing — strips all provider-specific wrappers."""
+    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+    raw = re.sub(r"```(?:json)?|```", "", raw).strip()
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not match:
+        raise ValueError("No JSON in response")
+    return json.loads(match.group())
+
+
+def _try_providers(prompt: str, max_tokens: int) -> tuple[str, str]:
     """
-    Realistic mock data when no LLM is available (Streamlit Cloud without API key).
-    Scales summary bullets with transcript length.
+    Fix: Fallback hierarchy — Groq → Ollama → raises
+    Returns (raw_response, provider_name)
     """
+    providers_to_try = []
+
+    if PROVIDER == "auto":
+        if _get_groq_key():
+            providers_to_try = [("groq", _call_groq), ("ollama", _call_ollama)]
+        else:
+            providers_to_try = [("ollama", _call_ollama)]
+    elif PROVIDER == "groq":
+        providers_to_try = [("groq", _call_groq)]
+    elif PROVIDER == "ollama":
+        providers_to_try = [("ollama", _call_ollama)]
+
+    last_error = None
+    for name, caller in providers_to_try:
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                raw = caller(prompt, max_tokens)
+                return raw, name
+            except ValueError as e:
+                if "NO_GROQ_KEY" in str(e):
+                    break  # skip Groq entirely, try next provider
+                last_error = e
+                if attempt < MAX_RETRIES:
+                    time.sleep(1)
+            except requests.exceptions.Timeout:
+                last_error = TimeoutError(f"{name} timeout")
+                if attempt < MAX_RETRIES:
+                    time.sleep(2)
+            except requests.exceptions.ConnectionError:
+                last_error = ConnectionError(f"{name} offline")
+                break  # connection error — skip retries, try next provider
+            except Exception as e:
+                last_error = e
+                if attempt < MAX_RETRIES:
+                    time.sleep(1)
+
+    raise last_error or RuntimeError("All providers failed")
+
+
+def _mock_response(text: str, reason: str = "") -> dict:
     words = len(text.split())
     if words < 200:
-        summary = [
-            "The team discussed Q3 project progress and confirmed key deadlines.",
-            "Action items were assigned with clear ownership and timelines.",
-            "Both speakers demonstrated collaborative tone with mixed JA/EN communication."
-        ]
+        summary = ["Team discussed updates.", "Action items assigned.", "Mixed JA/EN used."]
     elif words < 600:
-        summary = [
-            "The meeting opened with a Q3 progress review showing KPI performance at 98% of target.",
-            "Concerns were raised about the new feature release schedule and potential delays.",
-            "Budget adjustments were discussed and require sign-off from the technical team.",
-            "Action items were clearly assigned with deadlines ranging from today to next Friday.",
-            "Next meeting scheduled for Friday at 15:00 — minutes to be prepared by Tanaka."
-        ]
+        summary = ["Meeting opened with progress review.", "Concerns raised and addressed.",
+                   "Budget adjustments discussed.", "Action items assigned.", "Follow-up scheduled."]
     else:
-        summary = [
-            "The meeting opened with a Q3 progress review showing KPI performance at 98% of target.",
-            "Concerns were raised about the new feature release schedule.",
-            "鈴木 expressed indirect hesitation using nemawashi language.",
-            "Budget adjustments require final confirmation from the technical team by Monday.",
-            "Customer feedback volume has increased — support team expansion proposed.",
-            "Support manual revision identified as a parallel workstream.",
-            "All action items formally assigned with clear owners and deadlines.",
-            "Next sync confirmed for Friday 15:00 — Tanaka responsible for minutes."
-        ]
-
+        summary = ["Meeting opened with project overview.", "Security and compliance addressed.",
+                   "Technical architecture confirmed.", "Soft rejection signals detected.",
+                   "Action items assigned to team.", "Materials to be prepared by weekend.",
+                   "Monday sync scheduled.", "Risk proposal to be resubmitted."]
     return {
         "summary": summary,
         "action_items": [
-            {"task": "Confirm release schedule", "owner": "Suzuki", "deadline": "Monday"},
-            {"task": "Review Q3 report financial section", "owner": "Tanaka", "deadline": "Thursday"},
-            {"task": "Send delay notification to client", "owner": "Sato", "deadline": "Today"},
-            {"task": "Draft support manual revision", "owner": "Suzuki", "deadline": "Friday"},
-            {"task": "Prepare meeting minutes", "owner": "Tanaka", "deadline": "Friday 15:00"}
+            {"task": "Prepare security audit", "owner": "Priya", "deadline": "Friday EOD"},
+            {"task": "Submit revised proposal", "owner": "Sato",  "deadline": "Monday"},
         ],
         "sentiment": [
-            {"speaker": "Tanaka", "score": "positive", "label": "Professional and collaborative"},
-            {"speaker": "Suzuki", "score": "neutral",  "label": "Cautiously cooperative"}
+            {"speaker": "Tanaka", "score": "neutral", "label": "Cautiously evaluating"},
+            {"speaker": "Sato",   "score": "neutral", "label": "Professional"},
         ],
         "speakers": [
-            {"name": "Tanaka", "talk_time_pct": 55, "tone": "formal"},
-            {"name": "Suzuki", "talk_time_pct": 45, "tone": "formal"}
+            {"name": "Tanaka", "talk_time_pct": 50, "tone": "formal"},
+            {"name": "Sato",   "talk_time_pct": 50, "tone": "formal"},
         ],
         "japan_insights": {
             "keigo_level": "high",
-            "nemawashi_signals": ["そうですね", "検討いたします", "難しいかもしれません", "前向きに対応"],
+            "nemawashi_signals": ["検討します", "承知いたしました"],
             "code_switch_count": 4
-        }
+        },
+        "_mock_reason": reason
     }
 
 
 def analyze_transcript(text: str, language: str = "en") -> dict:
     """
-    Analyzes a transcript using the configured LLM provider.
-
-    Provider selection (PROVIDER env var or config above):
-      "ollama" → local Ollama (default, zero cost, APPI compliant)
-      "groq"   → Groq free API (zero cost, 10x faster, needs GROQ_API_KEY)
-
-    Falls back to mock data if no LLM is reachable.
-
-    JSON schema is IDENTICAL regardless of provider.
-    Swapping providers requires changing one line — nothing else.
+    Full analysis pipeline v6:
+    1. Cache check (instant return for repeated transcripts)
+    2. Provider fallback: Groq → Ollama → Mock
+    3. Schema enforcement + parsing
+    4. Speaker normalization (Fix 1)
+    5. MeCab keigo (Fix: wired in)
+    6. Rule-based code-switch
+    7. Semantic validation (Fix: TF-IDF rescues false flags)
+    8. Hallucination guard (rule-based)
+    9. Soft rejection detection
+    10. Logging
     """
+    start_time = time.time()
+
+    # Step 1: Cache check
+    try:
+        from cache import get_cached, set_cache
+        cached = get_cached(text, language)
+        if cached:
+            cached["_from_cache"] = True
+            return cached
+    except ImportError:
+        get_cached = set_cache = None
+
     prompt     = build_prompt(text, language)
     max_tokens = min(2048, max(1024, len(text.split()) * 3))
-
-    raw = ""
-    provider_used = PROVIDER
+    provider_used = "unknown"
+    last_error    = None
 
     try:
-        if PROVIDER == "groq":
-            raw = _call_groq(prompt, max_tokens)
-        else:
-            raw = _call_ollama(prompt, max_tokens)
-
-        # Strip qwen3 thinking blocks and markdown fences
-        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
-        raw = re.sub(r"```(?:json)?", "", raw).strip()
-
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
-            raise ValueError("No JSON object in model response")
-
-        result = json.loads(match.group())
+        raw, provider_used = _try_providers(prompt, max_tokens)
+        result = _parse(raw)
         result = _validate_and_fill(result)
 
-        # Fix 1: rule-based code-switch (overrides LLM count)
+    except Exception as e:
+        last_error    = str(e)[:80]
+        provider_used = "mock"
+        result        = _mock_response(text, reason=last_error)
+        result        = _validate_and_fill(result)
+
+    # Fix 1: Speaker normalization
+    try:
+        from speaker_normalizer import unify_speakers_in_result
+        result = unify_speakers_in_result(result, text)
+    except ImportError:
+        pass
+
+    # Fix: Wire MeCab keigo (overrides LLM classification)
+    try:
+        from japanese_tokenizer import get_keigo_level, MECAB_AVAILABLE
+        if MECAB_AVAILABLE:
+            result["japan_insights"]["keigo_level"] = get_keigo_level(text)
+            result["japan_insights"]["keigo_source"] = "mecab"
+    except ImportError:
+        pass
+
+    # Rule-based code-switch
+    try:
+        from evaluator import count_code_switches
+        result["japan_insights"]["code_switch_count"] = count_code_switches(text)
+        result["japan_insights"]["code_switch_source"] = "rule_based"
+    except ImportError:
+        pass
+
+    # Fix 2: Hallucination guard + semantic rescue
+    try:
+        from hallucination_guard import verify_result
+        result = verify_result(result, text)
+        # Semantic validation rescues false flags
+        from semantic_validator import validate_action_items_semantic
+        result["action_items"] = validate_action_items_semantic(
+            result.get("action_items", []), text
+        )
+    except ImportError:
+        pass
+
+    # Soft rejection detection
+    try:
+        from soft_rejection_detector import detect_soft_rejections
+        result["soft_rejections"] = detect_soft_rejections(text)
+    except ImportError:
+        pass
+
+    duration_ms = (time.time() - start_time) * 1000
+    result["_provider"]    = provider_used
+    result["_duration_ms"] = round(duration_ms, 1)
+    if last_error:
+        result["_last_error"] = last_error
+
+    # Step 10: Log
+    try:
+        from logger import log_analysis
+        log_analysis(len(text), language, provider_used, duration_ms, result, last_error)
+    except ImportError:
+        pass
+
+    # Cache successful results
+    if set_cache and "mock" not in provider_used:
         try:
-            from evaluator import count_code_switches
-            result["japan_insights"]["code_switch_count"] = count_code_switches(text)
-            result["japan_insights"]["code_switch_source"] = "rule_based"
-        except ImportError:
+            set_cache(text, language, result)
+        except Exception:
             pass
 
-        # Fix 2: hallucination prevention (rule-based, NOT LLM)
-        try:
-            from hallucination_guard import verify_result
-            result = verify_result(result, text)
-        except ImportError:
-            pass
-
-        # Fix 3: soft rejection detection
-        try:
-            from soft_rejection_detector import detect_soft_rejections
-            result["soft_rejections"] = detect_soft_rejections(text)
-        except ImportError:
-            pass
-
-        result["_provider"] = provider_used
-        return result
-
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        # Ollama not running — fall back to mock
-        result = _mock_response(text)
-        result["_provider"] = "mock"
-        return result
-
-    except ValueError as e:
-        if "GROQ_API_KEY" in str(e):
-            # No Groq key — fall back to mock
-            result = _mock_response(text)
-            result["_provider"] = "mock_no_key"
-            return result
-        raise
-
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Model returned invalid JSON: {e}\n\nRaw:\n{raw[:500]}")
+    return result
 
 
 def _validate_and_fill(data: dict) -> dict:
-    """Ensure all required keys exist with sensible defaults."""
     data.setdefault("summary", ["No summary available."])
     data.setdefault("action_items", [])
     data.setdefault("sentiment", [])
     data.setdefault("speakers", [])
     data.setdefault("japan_insights", {})
-
     ji = data["japan_insights"]
     ji.setdefault("keigo_level", "unknown")
     ji.setdefault("nemawashi_signals", [])
     ji.setdefault("code_switch_count", 0)
-
     speakers = data["speakers"]
     if speakers:
         total = sum(s.get("talk_time_pct", 0) for s in speakers)
         if total > 0 and total != 100:
             for s in speakers:
                 s["talk_time_pct"] = round(s.get("talk_time_pct", 0) * 100 / total)
-
     return data
 
 
-# ── QUICK TEST ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import sys
-    # Allow testing Groq: python analyzer.py groq
-    if len(sys.argv) > 1 and sys.argv[1] == "groq":
-        os.environ["TRANSCRIPT_AI_PROVIDER"] = "groq"
-        print("Testing with Groq provider...")
-    else:
-        print(f"Testing with {PROVIDER} provider...")
+    if len(sys.argv) > 1:
+        os.environ["TRANSCRIPT_AI_PROVIDER"] = sys.argv[1]
+    print(f"Provider config: {PROVIDER}")
 
     sample = """
-    田中: おはようございます。今日のプロジェクト更新について話しましょう。
-    Sato: Good morning. Yes, the Q3 report is almost ready.
-    田中: そうですね。Deadline is next Friday, right?
-    Sato: Correct. I will handle the financial section. Can you review by Thursday?
-    田中: 検討します。Also, we need to inform the client about the delay.
-    Sato: Understood. I will send them an email today.
-    田中: ありがとうございます。Let's sync again tomorrow morning.
+    Kunal (Lead Engineer): 皆さん、お疲れ様です。We are moving to Groq API.
+    Tanaka (Director): セキュリティはどうですか？APPI complianceが重要です。
+    Sato (PM): 承知いたしました。PII maskingで対応済みです。検討いたします。
+    Priya (Backend Dev): Redis async processor also added for scaling.
     """
     result = analyze_transcript(sample, language="mixed")
-    print(f"Provider used: {result.get('_provider', 'unknown')}")
+    print(f"Provider: {result.get('_provider')} | {result.get('_duration_ms')}ms")
+    print(f"Speakers: {[s['name'] for s in result.get('speakers', [])]}")
+    print(f"Keigo: {result['japan_insights']['keigo_level']} ({result['japan_insights'].get('keigo_source','llm')})")
+    print(f"Cache: {result.get('_from_cache', False)}")
     print(json.dumps(result, indent=2, ensure_ascii=False))

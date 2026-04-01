@@ -1,0 +1,215 @@
+{
+  "summary": [
+    "田中はプロジェクト進捗会議を開始し、佐藤に進捗状況を確認した。",
+    "佐藤はベータ版完成を予定しているが、データベースの問題が残っていると説明した。",
+    "鈴木に問題解決を依頼し、クライアントへの報告を田中が行うことを確認した。"
+  ],
+  "action_items": [
+    {
+      "task": "テストチームへの引き渡しを再來週の月曜日に予定",
+      "owner": "佐藤",
+      "deadline": "再來週の月曜日",
+      "confidence": 0.87,
+      "grounding": {
+        "task_score": 0.825,
+        "owner_score": 1.0,
+        "deadline_score": 0.75
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.137
+    },
+    {
+      "task": "データベースの問題を解決する",
+      "owner": "鈴木",
+      "deadline": "明日まで",
+      "confidence": 0.922,
+      "grounding": {
+        "task_score": 0.87,
+        "owner_score": 1.0,
+        "deadline_score": 1.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.162
+    },
+    {
+      "task": "クライアントへの報告を行う",
+      "owner": "田中",
+      "deadline": "未指定",
+      "confidence": 0.842,
+      "grounding": {
+        "task_score": 0.87,
+        "owner_score": 1.0,
+        "deadline_score": 0.2
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.107
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "田中",
+      "score": "neutral",
+      "label": "中立"
+    },
+    {
+      "speaker": "佐藤",
+      "score": "neutral",
+      "label": "中立"
+    },
+    {
+      "speaker": "鈴木",
+      "score": "neutral",
+      "label": "中立"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "田中",
+      "talk_time_pct": 33,
+      "tone": "formal"
+    },
+    {
+      "name": "佐藤",
+      "talk_time_pct": 33,
+      "tone": "formal"
+    },
+    {
+      "name": "鈴木",
+      "talk_time_pct": 34,
+      "tone": "formal"
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "medium",
+    "nemawashi_signals": [
+      "承知しました。",
+      "お願いします。"
+    ],
+    "code_switch_count": 0,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "テストチームへの引き渡しを再來週の月曜日に予定",
+          "owner": "佐藤",
+          "deadline": "再來週の月曜日",
+          "confidence": 0.87,
+          "grounding": {
+            "task_score": 0.825,
+            "owner_score": 1.0,
+            "deadline_score": 0.75
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.137
+        },
+        {
+          "task": "データベースの問題を解決する",
+          "owner": "鈴木",
+          "deadline": "明日まで",
+          "confidence": 0.922,
+          "grounding": {
+            "task_score": 0.87,
+            "owner_score": 1.0,
+            "deadline_score": 1.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.162
+        },
+        {
+          "task": "クライアントへの報告を行う",
+          "owner": "田中",
+          "deadline": "未指定",
+          "confidence": 0.842,
+          "grounding": {
+            "task_score": 0.87,
+            "owner_score": 1.0,
+            "deadline_score": 0.2
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.107
+        }
+      ],
+      "flagged": [],
+      "total": 3,
+      "verified_count": 3,
+      "flagged_count": 0,
+      "avg_confidence": 0.878,
+      "hallucination_rate": 0.0
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "田中はプロジェクト進捗会議を開始し、佐藤に進捗状況を確認した。",
+          "grounding_score": 0.633,
+          "hallucination_flag": false
+        },
+        {
+          "text": "佐藤はベータ版完成を予定しているが、データベースの問題が残っていると説明した。",
+          "grounding_score": 0.811,
+          "hallucination_flag": false
+        },
+        {
+          "text": "鈴木に問題解決を依頼し、クライアントへの報告を田中が行うことを確認した。",
+          "grounding_score": 0.621,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 3,
+      "flagged_count": 0,
+      "total": 3
+    },
+    "sentiment_speakers": {
+      "verified": [
+        {
+          "speaker": "田中",
+          "score": "neutral",
+          "label": "中立",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        },
+        {
+          "speaker": "佐藤",
+          "score": "neutral",
+          "label": "中立",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        },
+        {
+          "speaker": "鈴木",
+          "score": "neutral",
+          "label": "中立",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 3,
+      "flagged_count": 0
+    },
+    "overall_hallucination_risk": 0.0,
+    "risk_label": "LOW",
+    "flagged_total": 0,
+    "total_claims": 9,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [],
+    "high_signals": [],
+    "medium_signals": [],
+    "low_signals": [],
+    "total_signals": 0,
+    "rejection_count": 0,
+    "hesitation_count": 0,
+    "uncertain_count": 0,
+    "risk_level": "NONE",
+    "risk_summary": "No soft rejection patterns detected. Communication appears direct and positive.",
+    "cultural_note": "In Japanese business culture, direct refusal is avoided. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
+  },
+  "_provider": "ollama",
+  "_duration_ms": 61823.2,
+  "_cached_at": "2026-04-01T14:36:49.889498"
+}

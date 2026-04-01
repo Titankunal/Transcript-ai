@@ -1,0 +1,222 @@
+{
+  "summary": [
+    "Yamamoto and Sarah discussed the Q3 proposal and budget adjustments.",
+    "They confirmed the budget confirmation deadline as Thursday.",
+    "They agreed on the next meeting date as next Monday at 10am JST."
+  ],
+  "action_items": [
+    {
+      "task": "Confirm the budget limit by Thursday",
+      "owner": "Yamamoto",
+      "deadline": "Thursday",
+      "confidence": 0.75,
+      "grounding": {
+        "task_score": 0.75,
+        "owner_score": 1.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.056
+    },
+    {
+      "task": "Prepare the revised contract and send it by Wednesday",
+      "owner": "Sarah",
+      "deadline": "Wednesday",
+      "confidence": 0.78,
+      "grounding": {
+        "task_score": 0.8,
+        "owner_score": 1.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.064
+    },
+    {
+      "task": "Schedule the next meeting for next Monday at 10am JST",
+      "owner": "Yamamoto",
+      "deadline": "next Monday",
+      "confidence": 0.55,
+      "grounding": {
+        "task_score": 0.333,
+        "owner_score": 1.0,
+        "deadline_score": 0.5
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.042
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "Yamamoto",
+      "score": "neutral",
+      "label": "neutral"
+    },
+    {
+      "speaker": "Sarah",
+      "score": "neutral",
+      "label": "neutral"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "Yamamoto",
+      "talk_time_pct": 40,
+      "tone": "formal"
+    },
+    {
+      "name": "Sarah",
+      "talk_time_pct": 60,
+      "tone": "casual"
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "medium",
+    "nemawashi_signals": [
+      "はい、そうですね。",
+      "ありがとうございます。"
+    ],
+    "code_switch_count": 9,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "Confirm the budget limit by Thursday",
+          "owner": "Yamamoto",
+          "deadline": "Thursday",
+          "confidence": 0.75,
+          "grounding": {
+            "task_score": 0.75,
+            "owner_score": 1.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.056
+        },
+        {
+          "task": "Prepare the revised contract and send it by Wednesday",
+          "owner": "Sarah",
+          "deadline": "Wednesday",
+          "confidence": 0.78,
+          "grounding": {
+            "task_score": 0.8,
+            "owner_score": 1.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.064
+        },
+        {
+          "task": "Schedule the next meeting for next Monday at 10am JST",
+          "owner": "Yamamoto",
+          "deadline": "next Monday",
+          "confidence": 0.55,
+          "grounding": {
+            "task_score": 0.333,
+            "owner_score": 1.0,
+            "deadline_score": 0.5
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.042
+        }
+      ],
+      "flagged": [],
+      "total": 3,
+      "verified_count": 3,
+      "flagged_count": 0,
+      "avg_confidence": 0.693,
+      "hallucination_rate": 0.0
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "Yamamoto and Sarah discussed the Q3 proposal and budget adjustments.",
+          "grounding_score": 0.571,
+          "hallucination_flag": false
+        },
+        {
+          "text": "They agreed on the next meeting date as next Monday at 10am JST.",
+          "grounding_score": 0.375,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [
+        {
+          "text": "They confirmed the budget confirmation deadline as Thursday.",
+          "grounding_score": 0.167,
+          "hallucination_flag": true,
+          "flag_reason": "Low transcript grounding (score: 0.167) — verify this bullet"
+        }
+      ],
+      "verified_count": 2,
+      "flagged_count": 1,
+      "total": 3
+    },
+    "sentiment_speakers": {
+      "verified": [
+        {
+          "speaker": "Yamamoto",
+          "score": "neutral",
+          "label": "neutral",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        },
+        {
+          "speaker": "Sarah",
+          "score": "neutral",
+          "label": "neutral",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 2,
+      "flagged_count": 0
+    },
+    "overall_hallucination_risk": 0.125,
+    "risk_label": "LOW",
+    "flagged_total": 1,
+    "total_claims": 8,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [
+      {
+        "phrase": "そうですね",
+        "reading": "That's right / I see",
+        "intent": "HESITATION",
+        "confidence": 0.25,
+        "severity": "LOW",
+        "speaker": "Yamamoto",
+        "context": "hanks for joining. Shall we start with the Q3 proposal?\n[00:00:25] Yamamoto: はい、【そうですね】。Q3の提案について、検討しました。予算は少し調整が必要かもしれません。\n[00:00:40] Sarah: Understood. Can you confi",
+        "explanation": "Ambiguous. Can be genuine agreement OR a filler to avoid disagreement. Context determines meaning."
+      }
+    ],
+    "high_signals": [],
+    "medium_signals": [],
+    "low_signals": [
+      {
+        "phrase": "そうですね",
+        "reading": "That's right / I see",
+        "intent": "HESITATION",
+        "confidence": 0.25,
+        "severity": "LOW",
+        "speaker": "Yamamoto",
+        "context": "hanks for joining. Shall we start with the Q3 proposal?\n[00:00:25] Yamamoto: はい、【そうですね】。Q3の提案について、検討しました。予算は少し調整が必要かもしれません。\n[00:00:40] Sarah: Understood. Can you confi",
+        "explanation": "Ambiguous. Can be genuine agreement OR a filler to avoid disagreement. Context determines meaning."
+      }
+    ],
+    "total_signals": 1,
+    "rejection_count": 0,
+    "hesitation_count": 1,
+    "uncertain_count": 0,
+    "risk_level": "MINIMAL",
+    "risk_summary": "Minor hesitation signals only. Likely proceeding normally.",
+    "cultural_note": "In Japanese business culture, direct refusal is avoided. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
+  },
+  "_provider": "ollama",
+  "_duration_ms": 47858.0,
+  "_cached_at": "2026-04-01T14:35:48.061755"
+}

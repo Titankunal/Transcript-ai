@@ -1,0 +1,306 @@
+{
+  "summary": [
+    "Kunal presents the finalized architecture for TranscriptAI integration, moving from local Ollama to Groq Cloud API to resolve latency issues.",
+    "Security and compliance concerns are raised by [NAME_2], emphasizing APPI compliance and data privacy risks with cloud deployment.",
+    "Technical solutions like PII masking pipeline and Redis-backed async processor are introduced to ensure data privacy and processing efficiency.",
+    "[NAME_1] raises concerns about the AI's ability to interpret nuanced Japanese expressions like '前向きに検討します' as soft rejections.",
+    "[NAME_2] and [NAME_3] agree to delay the implementation and submit revised risk management plans and schedules by next Monday."
+  ],
+  "action_items": [
+    {
+      "task": "Prepare a detailed technical security audit report and a benchmarking doc for the MeCab detector",
+      "owner": "Priya",
+      "deadline": "Friday EOD",
+      "confidence": 0.95,
+      "grounding": {
+        "task_score": 1.0,
+        "owner_score": 1.0,
+        "deadline_score": 0.5
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.092
+    },
+    {
+      "task": "Summarize [NAME_4] and [NAME_5]部長's supplementary materials and create a FAQ set for the sales team",
+      "owner": "Kunal",
+      "deadline": "Weekend",
+      "confidence": 0.557,
+      "grounding": {
+        "task_score": 0.429,
+        "owner_score": 1.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.173
+    },
+    {
+      "task": "Share the minutes of today's meeting",
+      "owner": "NAME_1",
+      "deadline": "Monday morning",
+      "confidence": 0.3,
+      "grounding": {
+        "task_score": 0.5,
+        "owner_score": 0.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.042
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "NAME_2",
+      "score": "neutral",
+      "label": "疑問に思っている"
+    },
+    {
+      "speaker": "NAME_3",
+      "score": "neutral",
+      "label": "懸念が残ります"
+    },
+    {
+      "speaker": "NAME_1",
+      "score": "neutral",
+      "label": "不安の声も上がっています"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "Kunal",
+      "talk_time_pct": 31,
+      "tone": "formal"
+    },
+    {
+      "name": "NAME_2",
+      "talk_time_pct": 23,
+      "tone": "formal"
+    },
+    {
+      "name": "NAME_3",
+      "talk_time,_pct": 15,
+      "tone": "formal",
+      "talk_time_pct": 0
+    },
+    {
+      "name": "Priya",
+      "talk_time_pct": 23,
+      "tone": "formal"
+    },
+    {
+      "name": "NAME_1",
+      "talk_time_pct": 23,
+      "tone": "formal"
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "high",
+    "nemawashi_signals": [
+      "うーん",
+      "承知いたしました",
+      "うーん、[NAME_6]さんの指摘はもっともですね",
+      "少し懸念が残ります"
+    ],
+    "code_switch_count": 23,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "Prepare a detailed technical security audit report and a benchmarking doc for the MeCab detector",
+          "owner": "Priya",
+          "deadline": "Friday EOD",
+          "confidence": 0.95,
+          "grounding": {
+            "task_score": 1.0,
+            "owner_score": 1.0,
+            "deadline_score": 0.5
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.092
+        },
+        {
+          "task": "Summarize [NAME_4] and [NAME_5]部長's supplementary materials and create a FAQ set for the sales team",
+          "owner": "Kunal",
+          "deadline": "Weekend",
+          "confidence": 0.557,
+          "grounding": {
+            "task_score": 0.429,
+            "owner_score": 1.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.173
+        },
+        {
+          "task": "Share the minutes of today's meeting",
+          "owner": "NAME_1",
+          "deadline": "Monday morning",
+          "confidence": 0.3,
+          "grounding": {
+            "task_score": 0.5,
+            "owner_score": 0.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.042
+        }
+      ],
+      "flagged": [],
+      "total": 3,
+      "verified_count": 3,
+      "flagged_count": 0,
+      "avg_confidence": 0.602,
+      "hallucination_rate": 0.0
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "Kunal presents the finalized architecture for TranscriptAI integration, moving from local Ollama to Groq Cloud API to resolve latency issues.",
+          "grounding_score": 0.733,
+          "hallucination_flag": false
+        },
+        {
+          "text": "Security and compliance concerns are raised by [NAME_2], emphasizing APPI compliance and data privacy risks with cloud deployment.",
+          "grounding_score": 0.333,
+          "hallucination_flag": false
+        },
+        {
+          "text": "Technical solutions like PII masking pipeline and Redis-backed async processor are introduced to ensure data privacy and processing efficiency.",
+          "grounding_score": 0.4,
+          "hallucination_flag": false
+        },
+        {
+          "text": "[NAME_1] raises concerns about the AI's ability to interpret nuanced Japanese expressions like '前向きに検討します' as soft rejections.",
+          "grounding_score": 0.621,
+          "hallucination_flag": false
+        },
+        {
+          "text": "[NAME_2] and [NAME_3] agree to delay the implementation and submit revised risk management plans and schedules by next Monday.",
+          "grounding_score": 0.231,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 5,
+      "flagged_count": 0,
+      "total": 5
+    },
+    "sentiment_speakers": {
+      "verified": [],
+      "flagged": [
+        {
+          "speaker": "NAME_2",
+          "score": "neutral",
+          "label": "疑問に思っている",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_2' not found in transcript — may be hallucinated"
+        },
+        {
+          "speaker": "NAME_3",
+          "score": "neutral",
+          "label": "懸念が残ります",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_3' not found in transcript — may be hallucinated"
+        },
+        {
+          "speaker": "NAME_1",
+          "score": "neutral",
+          "label": "不安の声も上がっています",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_1' not found in transcript — may be hallucinated"
+        }
+      ],
+      "verified_count": 0,
+      "flagged_count": 3
+    },
+    "overall_hallucination_risk": 0.273,
+    "risk_label": "MEDIUM",
+    "flagged_total": 3,
+    "total_claims": 11,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [
+      {
+        "phrase": "検討します",
+        "reading": "We will consider it",
+        "intent": "LIKELY_REJECTION",
+        "confidence": 0.72,
+        "severity": "MEDIUM",
+        "speaker": "(Sales)",
+        "context": "す。ただ、現場の営業チームからは「実用性」についての不安の声も上がっています。特に、日本のビジネス特有の「含みのある表現」についてです。例えば、顧客が「前向きに【検討します】」や「社内で調整します」と言った場合、それは文字通りの意味ではなく、丁寧な拒絶であることが多いですよね。AIがその「行間」を読み取り、正確なネガティブシグナルと",
+        "explanation": "In Japanese business, 'We will consider it' without a specific timeline almost always means No. If followed by a deadline, it may be genuine."
+      },
+      {
+        "phrase": "前向きに検討",
+        "reading": "Positive consideration",
+        "intent": "UNCERTAIN",
+        "confidence": 0.55,
+        "severity": "MEDIUM",
+        "speaker": "(Sales)",
+        "context": "心強いです。ただ、現場の営業チームからは「実用性」についての不安の声も上がっています。特に、日本のビジネス特有の「含みのある表現」についてです。例えば、顧客が「【前向きに検討】します」や「社内で調整します」と言った場合、それは文字通りの意味ではなく、丁寧な拒絶であることが多いですよね。AIがその「行間」を読み取り、正確なネガティブシグ",
+        "explanation": "'Positive consideration' sounds optimistic but is often used when the speaker cannot commit. Outcome genuinely uncertain."
+      },
+      {
+        "phrase": "少し懸念",
+        "reading": "A little concerned",
+        "intent": "HESITATION",
+        "confidence": 0.4,
+        "severity": "LOW",
+        "speaker": "(Director)",
+        "context": "しましたが… 導入時期については、もう少し慎重になるべきかもしれませんね。現場の混乱を避けるためにも、予算の再検討や追加のパイロットテストが必要かもしれません。【少し懸念】が残ります。\n\n[NAME_3] (PM): 承知いたしました。[NAME_5]部長のご意向、重々承知しております。確かに、性急な導入はリスクを伴います。それで",
+        "explanation": "Signals discomfort or disagreement expressed indirectly. Worth probing further."
+      }
+    ],
+    "high_signals": [],
+    "medium_signals": [
+      {
+        "phrase": "検討します",
+        "reading": "We will consider it",
+        "intent": "LIKELY_REJECTION",
+        "confidence": 0.72,
+        "severity": "MEDIUM",
+        "speaker": "(Sales)",
+        "context": "す。ただ、現場の営業チームからは「実用性」についての不安の声も上がっています。特に、日本のビジネス特有の「含みのある表現」についてです。例えば、顧客が「前向きに【検討します】」や「社内で調整します」と言った場合、それは文字通りの意味ではなく、丁寧な拒絶であることが多いですよね。AIがその「行間」を読み取り、正確なネガティブシグナルと",
+        "explanation": "In Japanese business, 'We will consider it' without a specific timeline almost always means No. If followed by a deadline, it may be genuine."
+      },
+      {
+        "phrase": "前向きに検討",
+        "reading": "Positive consideration",
+        "intent": "UNCERTAIN",
+        "confidence": 0.55,
+        "severity": "MEDIUM",
+        "speaker": "(Sales)",
+        "context": "心強いです。ただ、現場の営業チームからは「実用性」についての不安の声も上がっています。特に、日本のビジネス特有の「含みのある表現」についてです。例えば、顧客が「【前向きに検討】します」や「社内で調整します」と言った場合、それは文字通りの意味ではなく、丁寧な拒絶であることが多いですよね。AIがその「行間」を読み取り、正確なネガティブシグ",
+        "explanation": "'Positive consideration' sounds optimistic but is often used when the speaker cannot commit. Outcome genuinely uncertain."
+      }
+    ],
+    "low_signals": [
+      {
+        "phrase": "少し懸念",
+        "reading": "A little concerned",
+        "intent": "HESITATION",
+        "confidence": 0.4,
+        "severity": "LOW",
+        "speaker": "(Director)",
+        "context": "しましたが… 導入時期については、もう少し慎重になるべきかもしれませんね。現場の混乱を避けるためにも、予算の再検討や追加のパイロットテストが必要かもしれません。【少し懸念】が残ります。\n\n[NAME_3] (PM): 承知いたしました。[NAME_5]部長のご意向、重々承知しております。確かに、性急な導入はリスクを伴います。それで",
+        "explanation": "Signals discomfort or disagreement expressed indirectly. Worth probing further."
+      }
+    ],
+    "total_signals": 3,
+    "rejection_count": 1,
+    "hesitation_count": 1,
+    "uncertain_count": 1,
+    "risk_level": "HIGH",
+    "risk_summary": "Multiple rejection signals detected. The meeting likely ended without agreement.",
+    "cultural_note": "In Japanese business culture, direct refusal is avoided. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
+  },
+  "_provider": "ollama",
+  "_duration_ms": 110808.3,
+  "_cached_at": "2026-04-01T14:31:21.503152"
+}

@@ -316,9 +316,26 @@ if run_analysis and final_text:
 
     progress_placeholder.empty()
 
-    st.session_state.results = results
+    st.session_state.results  = results
     st.session_state.current_transcript = final_text
-    st.session_state.current_language = active_lang
+    st.session_state.current_language   = active_lang
+
+    # Fix 3: UX failure feedback
+    provider = results.get("_provider", "unknown")
+    error    = results.get("_last_error", "")
+    duration = results.get("_duration_ms", 0)
+
+    if "mock" in provider:
+        if "no_key" in provider:
+            st.warning("⚠️ No API key found — showing demo data. Add GROQ_API_KEY in Streamlit secrets for real analysis.")
+        elif "timeout" in provider:
+            st.warning("⚠️ Analysis timed out after retries — showing demo data. Try a shorter transcript.")
+        elif "offline" in provider:
+            st.warning("⚠️ AI model offline — showing demo data. Start Ollama or add GROQ_API_KEY.")
+        else:
+            st.info("ℹ️ Running in demo mode — showing sample data.")
+    else:
+        st.success(f"✅ Analysis complete · Provider: {provider} · {round(duration/1000, 1)}s")
 
     history_entry = {
         "timestamp": datetime.now().isoformat(),
