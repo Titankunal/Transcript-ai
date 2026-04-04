@@ -34,12 +34,22 @@ from utils import (
     parse_uploaded_file,
 )
 
-# PII masker — graceful import so app works even if file not yet added
+# PII masker
 try:
     from pii_masker import mask_transcript, restore_pii_in_result, get_pii_report
     PII_AVAILABLE = True
 except ImportError:
     PII_AVAILABLE = False
+
+# Audio processor (MP4/MP3/WAV)
+try:
+    from audio_processor import (
+        transcribe_audio, format_transcript_with_timestamps,
+        SUPPORTED_FORMATS, MAX_FILE_SIZE_MB
+    )
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
 
 # Evaluator — graceful import
 try:
@@ -222,12 +232,40 @@ st.markdown("<div class='section-header'>📄 Transcript Input</div>", unsafe_al
 col_upload, col_paste = st.columns([1, 1], gap="large")
 
 with col_upload:
-    st.markdown("<div style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0.4rem;'>Upload a file</div>", unsafe_allow_html=True)
-    uploaded = st.file_uploader("Upload", type=["txt", "vtt", "json"], label_visibility="collapsed")
+    st.markdown("<div style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0.4rem;'>Upload a file <span style='color:#6366f1; font-size:0.78rem;'>(TXT · VTT · JSON · MP4 · MP3 · WAV)</span></div>", unsafe_allow_html=True)
+    # Build accepted types
+    accepted = ["txt", "vtt", "json"]
+    if AUDIO_AVAILABLE:
+        accepted += ["mp4", "mp3", "wav", "m4a", "webm"]
+
+    uploaded = st.file_uploader("Upload", type=accepted, label_visibility="collapsed")
     if uploaded is not None:
-        parsed = parse_uploaded_file(uploaded)
-        st.session_state.transcript_text = parsed
-        st.success(f"✅ Loaded **{uploaded.name}** · {len(parsed):,} chars")
+        ext = uploaded.name.lower().split(".")[-1]
+        if ext in ["mp4", "mp3", "wav", "m4a", "webm", "ogg"]:
+            file_size_mb = len(uploaded.getvalue()) / (1024 * 1024)
+            if file_size_mb > MAX_FILE_SIZE_MB:
+                st.error(f"⚠️ File too large ({file_size_mb:.1f}MB). Max: {MAX_FILE_SIZE_MB}MB")
+            else:
+                with st.spinner(f"🎙️ Transcribing {uploaded.name} ({file_size_mb:.1f}MB)…"):
+                    result = transcribe_audio(uploaded.getvalue(), uploaded.name)
+                if result["success"]:
+                    transcript = format_transcript_with_timestamps(result.get("segments", []))
+                    if not transcript:
+                        transcript = result["text"]
+                    st.session_state.transcript_text = transcript
+                    provider = result.get("provider", "unknown")
+                    lang     = result.get("language", "?")
+                    duration = result.get("duration", 0)
+                    st.success(
+                        f"✅ Transcribed **{uploaded.name}** · "
+                        f"{duration:.0f}s audio · Language: {lang} · via {provider}"
+                    )
+                else:
+                    st.error(f"❌ Transcription failed: {result.get('error', 'Unknown error')}")
+        else:
+            parsed = parse_uploaded_file(uploaded)
+            st.session_state.transcript_text = parsed
+            st.success(f"✅ Loaded **{uploaded.name}** · {len(parsed):,} chars")
 
 with col_paste:
     st.markdown("<div style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0.4rem;'>Or paste transcript</div>", unsafe_allow_html=True)

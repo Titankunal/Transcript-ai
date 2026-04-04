@@ -1,53 +1,12 @@
 {
   "summary": [
     "Team is transitioning to Groq API",
-    "Security and compliance are key concerns",
+    "Security compliance is a priority",
     "PII masking has been implemented"
   ],
-  "action_items": [
-    {
-      "task": "Implement Redis async processor for scaling",
-      "owner": "Priya",
-      "deadline": "immediate",
-      "confidence": 0.66,
-      "grounding": {
-        "task_score": 0.6,
-        "owner_score": 1.0,
-        "deadline_score": 0.0
-      },
-      "hallucination_flag": false,
-      "semantic_grounding": 0.124
-    }
-  ],
-  "sentiment": [
-    {
-      "speaker": "Sato",
-      "score": "neutral",
-      "label": "neutral"
-    }
-  ],
-  "speakers": [
-    {
-      "name": "Kunal",
-      "talk_time_pct": 16,
-      "tone": "formal"
-    },
-    {
-      "name": "Tanaka",
-      "talk_time_pct": 25,
-      "tone": "formal"
-    },
-    {
-      "name": "Sato",
-      "talk_time_pct": 33,
-      "tone": "formal"
-    },
-    {
-      "name": "Priya",
-      "talk_time_pct": 26,
-      "tone": "formal"
-    }
-  ],
+  "action_items": [],
+  "sentiment": [],
+  "speakers": [],
   "japan_insights": {
     "keigo_level": "high",
     "nemawashi_signals": [
@@ -59,29 +18,6 @@
     "code_switch_source": "rule_based"
   },
   "verification": {
-    "action_items": {
-      "verified": [
-        {
-          "task": "Implement Redis async processor for scaling",
-          "owner": "Priya",
-          "deadline": "immediate",
-          "confidence": 0.66,
-          "grounding": {
-            "task_score": 0.6,
-            "owner_score": 1.0,
-            "deadline_score": 0.0
-          },
-          "hallucination_flag": false,
-          "semantic_grounding": 0.124
-        }
-      ],
-      "flagged": [],
-      "total": 1,
-      "verified_count": 1,
-      "flagged_count": 0,
-      "avg_confidence": 0.66,
-      "hallucination_rate": 0.0
-    },
     "summary": {
       "verified": [
         {
@@ -90,8 +26,8 @@
           "hallucination_flag": false
         },
         {
-          "text": "Security and compliance are key concerns",
-          "grounding_score": 0.25,
+          "text": "Security compliance is a priority",
+          "grounding_score": 0.333,
           "hallucination_flag": false
         },
         {
@@ -105,24 +41,10 @@
       "flagged_count": 0,
       "total": 3
     },
-    "sentiment_speakers": {
-      "verified": [
-        {
-          "speaker": "Sato",
-          "score": "neutral",
-          "label": "neutral",
-          "speaker_grounding": 1.0,
-          "hallucination_flag": false
-        }
-      ],
-      "flagged": [],
-      "verified_count": 1,
-      "flagged_count": 0
-    },
     "overall_hallucination_risk": 0.0,
     "risk_label": "LOW",
     "flagged_total": 0,
-    "total_claims": 5,
+    "total_claims": 3,
     "note": "Items with hallucination_flag=True are low-confidence — verify manually"
   },
   "soft_rejections": {
@@ -161,6 +83,6 @@
     "cultural_note": "In Japanese business culture, direct refusal is avoided. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
   },
   "_provider": "ollama",
-  "_duration_ms": 50703.6,
-  "_cached_at": "2026-04-01T14:14:16.959423"
+  "_duration_ms": 24889.1,
+  "_cached_at": "2026-04-03T12:59:31.562749"
 }

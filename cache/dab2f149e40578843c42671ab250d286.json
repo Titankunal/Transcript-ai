@@ -1,8 +1,8 @@
 {
   "summary": [
     "Yamamoto and Sarah discussed the Q3 proposal and budget adjustments.",
-    "They confirmed the budget confirmation deadline as Thursday.",
-    "They agreed on the next meeting date as next Monday at 10am JST."
+    "They confirmed the budget limit by Thursday and the revised contract by Wednesday.",
+    "They agreed on the next meeting for Monday at 10am JST."
   ],
   "action_items": [
     {
@@ -11,12 +11,14 @@
       "deadline": "Thursday",
       "confidence": 0.75,
       "grounding": {
-        "task_score": 0.75,
+        "task_token_overlap": 0.75,
+        "task_semantic": 0.082,
+        "task_effective": 0.75,
         "owner_score": 1.0,
         "deadline_score": 0.0
       },
       "hallucination_flag": false,
-      "semantic_grounding": 0.056
+      "semantic_grounding": 0.082
     },
     {
       "task": "Prepare the revised contract and send it by Wednesday",
@@ -24,25 +26,14 @@
       "deadline": "Wednesday",
       "confidence": 0.78,
       "grounding": {
-        "task_score": 0.8,
+        "task_token_overlap": 0.8,
+        "task_semantic": 0.076,
+        "task_effective": 0.8,
         "owner_score": 1.0,
         "deadline_score": 0.0
       },
       "hallucination_flag": false,
-      "semantic_grounding": 0.064
-    },
-    {
-      "task": "Schedule the next meeting for next Monday at 10am JST",
-      "owner": "Yamamoto",
-      "deadline": "next Monday",
-      "confidence": 0.55,
-      "grounding": {
-        "task_score": 0.333,
-        "owner_score": 1.0,
-        "deadline_score": 0.5
-      },
-      "hallucination_flag": false,
-      "semantic_grounding": 0.042
+      "semantic_grounding": 0.076
     }
   ],
   "sentiment": [
@@ -60,20 +51,21 @@
   "speakers": [
     {
       "name": "Yamamoto",
-      "talk_time_pct": 40,
+      "talk_time_pct": 50,
       "tone": "formal"
     },
     {
       "name": "Sarah",
-      "talk_time_pct": 60,
+      "talk_time_pct": 50,
       "tone": "casual"
     }
   ],
   "japan_insights": {
     "keigo_level": "medium",
     "nemawashi_signals": [
-      "はい、そうですね。",
-      "ありがとうございます。"
+      "お時間いただきありがとうございます",
+      "了解しました",
+      "ありがとうございます"
     ],
     "code_switch_count": 9,
     "keigo_source": "mecab",
@@ -88,12 +80,14 @@
           "deadline": "Thursday",
           "confidence": 0.75,
           "grounding": {
-            "task_score": 0.75,
+            "task_token_overlap": 0.75,
+            "task_semantic": 0.082,
+            "task_effective": 0.75,
             "owner_score": 1.0,
             "deadline_score": 0.0
           },
           "hallucination_flag": false,
-          "semantic_grounding": 0.056
+          "semantic_grounding": 0.082
         },
         {
           "task": "Prepare the revised contract and send it by Wednesday",
@@ -101,32 +95,21 @@
           "deadline": "Wednesday",
           "confidence": 0.78,
           "grounding": {
-            "task_score": 0.8,
+            "task_token_overlap": 0.8,
+            "task_semantic": 0.076,
+            "task_effective": 0.8,
             "owner_score": 1.0,
             "deadline_score": 0.0
           },
           "hallucination_flag": false,
-          "semantic_grounding": 0.064
-        },
-        {
-          "task": "Schedule the next meeting for next Monday at 10am JST",
-          "owner": "Yamamoto",
-          "deadline": "next Monday",
-          "confidence": 0.55,
-          "grounding": {
-            "task_score": 0.333,
-            "owner_score": 1.0,
-            "deadline_score": 0.5
-          },
-          "hallucination_flag": false,
-          "semantic_grounding": 0.042
+          "semantic_grounding": 0.076
         }
       ],
       "flagged": [],
-      "total": 3,
-      "verified_count": 3,
+      "total": 2,
+      "verified_count": 2,
       "flagged_count": 0,
-      "avg_confidence": 0.693,
+      "avg_confidence": 0.765,
       "hallucination_rate": 0.0
     },
     "summary": {
@@ -137,21 +120,19 @@
           "hallucination_flag": false
         },
         {
-          "text": "They agreed on the next meeting date as next Monday at 10am JST.",
-          "grounding_score": 0.375,
+          "text": "They confirmed the budget limit by Thursday and the revised contract by Wednesday.",
+          "grounding_score": 0.714,
+          "hallucination_flag": false
+        },
+        {
+          "text": "They agreed on the next meeting for Monday at 10am JST.",
+          "grounding_score": 0.5,
           "hallucination_flag": false
         }
       ],
-      "flagged": [
-        {
-          "text": "They confirmed the budget confirmation deadline as Thursday.",
-          "grounding_score": 0.167,
-          "hallucination_flag": true,
-          "flag_reason": "Low transcript grounding (score: 0.167) — verify this bullet"
-        }
-      ],
-      "verified_count": 2,
-      "flagged_count": 1,
+      "flagged": [],
+      "verified_count": 3,
+      "flagged_count": 0,
       "total": 3
     },
     "sentiment_speakers": {
@@ -175,10 +156,10 @@
       "verified_count": 2,
       "flagged_count": 0
     },
-    "overall_hallucination_risk": 0.125,
+    "overall_hallucination_risk": 0.0,
     "risk_label": "LOW",
-    "flagged_total": 1,
-    "total_claims": 8,
+    "flagged_total": 0,
+    "total_claims": 7,
     "note": "Items with hallucination_flag=True are low-confidence — verify manually"
   },
   "soft_rejections": {
@@ -217,6 +198,6 @@
     "cultural_note": "In Japanese business culture, direct refusal is avoided. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
   },
   "_provider": "ollama",
-  "_duration_ms": 47858.0,
-  "_cached_at": "2026-04-01T14:35:48.061755"
+  "_duration_ms": 39953.2,
+  "_cached_at": "2026-04-03T13:02:50.060630"
 }

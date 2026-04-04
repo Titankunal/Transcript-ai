@@ -42,7 +42,7 @@ def _summary_instruction(text: str) -> str:
 def _extract_speaker_hint(text: str) -> str:
     """Pre-extract speakers to hint LLM — prevents missing speakers."""
     import re
-    pattern = re.compile(r"^([A-Za-z぀-鿿][^\n:：\[\]]{0,30}?)\s*[:：]", re.MULTILINE)
+    pattern = re.compile(r"^\s*([A-Za-z\u3040-\u9FFF][^\n:：\[\]]{0,30}?)\s*[:：]", re.MULTILINE)
     found = pattern.findall(text)
     # Clean and deduplicate
     seen, clean = set(), []
@@ -207,7 +207,7 @@ def _mock_response(text: str, reason: str = "") -> dict:
     """
     # Extract real speaker names from transcript for honest placeholders
     speaker_names = []
-    colon_pat = re.compile(r"(?:^|\n)([A-Za-z\u3040-\u9FFF][^\n:]{0,20}?)\s*[::]", re.MULTILINE)
+    colon_pat = re.compile(r"(?:^|\n)\s*([A-Za-z\u3040-\u9FFF][^\n:]{0,20}?)\s*[:：]", re.MULTILINE)
     for m in colon_pat.finditer(text):
         raw = m.group(1).strip()
         clean = re.sub(r"\s*\([^)]*\)", "", raw).strip()
@@ -274,10 +274,17 @@ def analyze_transcript(text: str, language: str = "en") -> dict:
         get_cached = set_cache = None
 
     prompt     = build_prompt(text, language)
-    # Speed fix: reduce token budget — JSON output is compact
-    # 800 tokens handles most transcripts, 1200 for very long ones
+    # Q1 FIX: Dynamic token budget based on actual transcript length
+    # 1200 was insufficient for long meetings (60min = ~8000 words needs ~3000 tokens)
     words = len(text.split())
-    max_tokens = min(1200, max(600, words * 2))
+    if words < 300:
+        max_tokens = 800
+    elif words < 800:
+        max_tokens = 1500
+    elif words < 2000:
+        max_tokens = 2500
+    else:
+        max_tokens = 4000   # long meetings — Groq handles this fine
     provider_used = "unknown"
     last_error    = None
 
@@ -292,7 +299,12 @@ def analyze_transcript(text: str, language: str = "en") -> dict:
         result        = _mock_response(text, reason=last_error)
         result        = _validate_and_fill(result)
 
-    # Fix 1: Speaker normalization
+    # Speaker normalization (runs on original unmasked text passed to analyzer)
+    # C2 NOTE: When PII masking is enabled in app.py, this receives masked text.
+    # The Kanji↔Romaji matching in speaker_normalizer is therefore only active
+    # when PII masking is OFF. With masking ON, normalization still deduplicates
+    # by placeholder ([NAME_1] appearing in both sentiment and speakers lists).
+    # Full cross-script resolution happens AFTER PII restore in app.py.
     try:
         from speaker_normalizer import unify_speakers_in_result
         result = unify_speakers_in_result(result, text)

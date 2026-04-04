@@ -82,20 +82,38 @@ class PIIMask:
         }
 
 
+# C3 FIX: Words that look like speaker labels but are NOT names
+_NOT_SPEAKER = {
+    "note", "notes", "todo", "action", "summary", "result", "update",
+    "warning", "error", "info", "subject", "from", "to", "cc", "date",
+    "time", "location", "agenda", "minutes", "re", "ps", "ps2",
+}
+
 def _extract_speaker_names(text: str) -> set:
     """
-    C2 + U4 FIX: Extract speaker names by position (before colon).
-    Handles Latin (Tanaka:) and CJK (田中:) speaker labels.
-    High-confidence PII regardless of surname list.
+    Extract speaker names by position (before colon).
+    C3 FIX: Filters out common non-name words (Note:, TODO:, etc.)
+    Q3 FIX: Handles leading whitespace before CJK names
+    U2 NOTE: 1-char CJK names not supported (extremely rare for surnames)
     """
     names = set()
+
+    # Latin names: require Title Case AND not in blocklist
     for m in _SPEAKER_LATIN.finditer(text):
         name = m.group(1).strip()
-        if name:
+        if name and name.lower() not in _NOT_SPEAKER:
             names.add(name)
-    for pattern in [_SPEAKER_CJK, _SPEAKER_CJK2]:
-        for m in pattern.finditer(text):
-            names.add(m.group(1).strip())
+
+    # CJK names: Q3 FIX - use \s* before name to allow leading whitespace
+    cjk_flexible = re.compile(
+        r"(?:^|\n)\s*(?:\[\d+:\d+(?::\d+)?\]\s*)?"
+        r"([\u3040-\u9FFF]{2,6})"   # U2 FIX: extended to 6 chars (長谷川部長)
+        r"(?:\s*[（\(][^)）]*[）\)])?\s*[:：]",
+        re.MULTILINE
+    )
+    for m in cjk_flexible.finditer(text):
+        names.add(m.group(1).strip())
+
     return {n for n in names if n and len(n) >= 2}
 
 
