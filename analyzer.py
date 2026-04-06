@@ -189,7 +189,7 @@ def _call_ollama(prompt: str, max_tokens: int) -> str:
             "options": {"temperature": 0.2, "num_predict": max_tokens},
             "think":   False
         },
-        timeout=300
+        timeout=90   # 90s max — if slower, use Groq
     )
     r.raise_for_status()
     return r.json().get("response", "")
@@ -237,26 +237,30 @@ def _try_providers(prompt: str, max_tokens: int) -> tuple[str, str]:
 
     last_error = None
     for name, caller in providers_to_try:
-        for attempt in range(MAX_RETRIES + 1):
+        # 2.1 FIX: Different retry strategy per provider
+        # Groq: up to MAX_RETRIES (fast, worth retrying on transient errors)
+        # Ollama: 0 retries — if it times out once, it will time out again
+        retries = MAX_RETRIES if name == "groq" else 0
+
+        for attempt in range(retries + 1):
             try:
                 raw = caller(prompt, max_tokens)
-                return raw, name
+                return raw, name   # SUCCESS — return immediately, never fall through
             except ValueError as e:
                 if "NO_GROQ_KEY" in str(e):
-                    break  # skip Groq entirely, try next provider
+                    break  # no key — skip Groq, try next
                 last_error = e
-                if attempt < MAX_RETRIES:
+                if attempt < retries:
                     time.sleep(1)
             except requests.exceptions.Timeout:
-                last_error = TimeoutError(f"{name} timeout")
-                if attempt < MAX_RETRIES:
-                    time.sleep(2)
+                last_error = TimeoutError(f"{name} timed out")
+                break   # 2.1 FIX: timeout = don't retry, move to next provider
             except requests.exceptions.ConnectionError:
                 last_error = ConnectionError(f"{name} offline")
-                break  # connection error — skip retries, try next provider
+                break
             except Exception as e:
                 last_error = e
-                if attempt < MAX_RETRIES:
+                if attempt < retries:
                     time.sleep(1)
 
     raise last_error or RuntimeError("All providers failed")
@@ -342,13 +346,14 @@ def analyze_transcript(text: str, language: str = "en") -> dict:
     # 1200 was insufficient for long meetings (60min = ~8000 words needs ~3000 tokens)
     words = len(text.split())
     if words < 300:
-        max_tokens = 800
+        max_tokens = 700
     elif words < 800:
-        max_tokens = 1500
+        max_tokens = 1200
     elif words < 2000:
-        max_tokens = 2500
+        max_tokens = 1800
     else:
-        max_tokens = 4000   # long meetings — Groq handles this fine
+        max_tokens = 2000   # cap — Ollama on CPU can't handle more in <90s
+    # Groq handles up to 4000 tokens fine — limit only matters for Ollama
     provider_used = "unknown"
     last_error    = None
 

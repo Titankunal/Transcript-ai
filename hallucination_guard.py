@@ -116,12 +116,16 @@ def _overlap_score(claim: str, transcript: str) -> float:
 
 # ── GROUNDING THRESHOLDS ──────────────────────────────────────────────────────
 THRESHOLDS = {
-    "action_task":     0.15,  # lowered: cross-language JA/EN clips legitimate tasks
-    "action_owner":    0.10,  # lowered: owner names already normalized
-    "action_deadline": 0.10,  # flexible — often implied
-    "summary_bullet":  0.15,  # paraphrasing expected
-    "sentiment_speaker": 0.05, # very low — names pre-extracted from transcript
+    "action_task":       0.20,  # 2.3 FIX: raised — 0.065 was being accepted as verified
+    "action_owner":      0.10,  # owner names already normalized — keep low
+    "action_deadline":   0.10,  # often implied
+    "summary_bullet":    0.15,  # paraphrasing expected
+    "sentiment_speaker": 0.05,  # pre-extracted from labels — keep very low
 }
+
+# 2.3 FIX: Semantic rescue threshold raised to match task threshold
+# Items with token_overlap < 0.20 AND semantic < 0.20 = flagged
+SEMANTIC_RESCUE_THRESHOLD = 0.20  # was 0.15 — too lenient
 
 
 # ── ACTION ITEM VERIFICATION ──────────────────────────────────────────────────

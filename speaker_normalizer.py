@@ -45,10 +45,19 @@ def normalize_speaker_name(raw: str) -> str:
     "Tanaka (Director)" → "Tanaka"
     "田中部長"          → "田中"
     "Sato-san"          → "Sato"
-    "(PM)"              → "" (role-only, will be filtered)
-    "Dev)"              → "" (malformed role label)
+    "(PM)"              → "" (role-only)
+    "Dev)"              → "Dev" (2.4 FIX: trailing ) stripped)
     """
     name = raw.strip()
+
+    # 2.4 FIX: Strip orphaned trailing ) not matched by role patterns
+    # "Dev)" has no opening ( so ROLE_PATTERNS miss it
+    if name.endswith(")") and "(" not in name:
+        name = name[:-1].strip()
+
+    # Strip opening ( with no closing
+    if name.startswith("(") and ")" not in name:
+        name = name[1:].strip()
 
     # Apply role pattern stripping
     for pattern in ROLE_PATTERNS:
