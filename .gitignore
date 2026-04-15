@@ -1,4 +1,69 @@
-.env
+# ── Editor & IDE ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.cursor/
+.antigravity/
+
+# ── Python ───────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Environment ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+venv/
+env/
+.venv/
+ENV/
+
+# ── Streamlit secrets ─────────────────────────────────────────────
 .streamlit/secrets.toml
+
+# ── Cache & logs ─────────────────────────────────────────────────
+cache/
+logs/
+*.log
+*.jsonl
+
+# ── OS junk ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ── Temporary files ───────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# ── Large model files ─────────────────────────────────────────────
+*.bin
+*.pt
+*.pth
+*.onnx
+*.safetensors
+models/
+
+# ── Node (if any frontend tooling added later) ────────────────────
+node_modules/
