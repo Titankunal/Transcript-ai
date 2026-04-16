@@ -1,64 +1,41 @@
 """
-app.py
-------
-Main Streamlit application for TranscriptAI.
-Japanese Business Intelligence — Call Transcript Analyzer.
+app.py — TranscriptAI
+Japanese Business Intelligence Platform
 
-HOW TO RUN (only one command needed):
-    python -m streamlit run app.py
-
-All other files (analyzer.py, utils.py, pii_masker.py, evaluator.py)
-are imported automatically. You never run them directly.
-
-EXCEPTION — to test a single file in isolation:
-    python analyzer.py       ← tests AI connection + prints sample JSON
-    python pii_masker.py     ← tests PII masking on a sample transcript
-    python evaluator.py      ← runs full evaluation against test_data.py
+Run: python -m streamlit run app.py
 """
 
-import json
 import time
 from datetime import datetime
-
 import streamlit as st
-
 from analyzer import analyze_transcript
 from utils import (
-    add_to_history,
-    build_export_json,
-    clean_text,
-    detect_language,
-    export_filename,
-    format_history_label,
-    language_display_name,
-    parse_uploaded_file,
+    add_to_history, build_export_json, clean_text, detect_language,
+    export_filename, format_history_label, language_display_name, parse_uploaded_file,
 )
 
-# PII masker
+# ── Optional dependencies ────────────────────────────────────────────────────
 try:
     from pii_masker import mask_transcript, restore_pii_in_result, get_pii_report
     PII_AVAILABLE = True
 except ImportError:
     PII_AVAILABLE = False
 
-# Audio processor
 try:
     from audio_processor import (
-        transcribe_audio, format_transcript_with_timestamps,
-        SUPPORTED_FORMATS, MAX_FILE_SIZE_MB
+        transcribe_audio, format_transcript_with_timestamps, MAX_FILE_SIZE_MB
     )
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
+    MAX_FILE_SIZE_MB = 25
 
-# Streaming
 try:
     from analyzer import stream_transcript_groq
     STREAMING_AVAILABLE = True
 except ImportError:
     STREAMING_AVAILABLE = False
 
-# Evaluator — graceful import
 try:
     from evaluator import evaluate
     from test_data import TEST_CASES
@@ -66,637 +43,935 @@ try:
 except ImportError:
     EVAL_AVAILABLE = False
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Page config
-# ─────────────────────────────────────────────────────────────────────────────
+try:
+    from language_intelligence import get_features, detect_hindi_patterns
+    LANGUAGE_INTEL_AVAILABLE = True
+except ImportError:
+    LANGUAGE_INTEL_AVAILABLE = False
+    def get_features(lang):
+        return {
+            "show_japan_insights": lang in ("ja", "mixed"),
+            "show_hindi_insights": lang == "hi",
+            "show_code_switch": lang in ("ja", "mixed"),
+            "insight_tab_label": "🌸 Cultural Intelligence" if lang in ("ja","mixed") else "🌐 Insights",
+            "insight_tab_enabled": lang != "en",
+        }
+
+# ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="TranscriptAI — Japanese Business Intelligence",
-    page_icon="🎙️",
+    page_title="TranscriptAI · 議事録分析",
+    page_icon="🌸",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Custom CSS
-# ─────────────────────────────────────────────────────────────────────────────
+# ── CSS — warm sakura/peach palette ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
-html, body, [class*="css"] { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
-.stApp { background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); min-height: 100vh; }
-[data-testid="stSidebar"] { background: rgba(255,255,255,0.04); border-right: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(12px); }
-.card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1rem; backdrop-filter: blur(8px); transition: border-color 0.2s ease; }
-.card:hover { border-color: rgba(139,92,246,0.45); }
-.metric-card { background: linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.15)); border: 1px solid rgba(139,92,246,0.30); border-radius: 12px; padding: 1rem 1.2rem; text-align: center; }
-.metric-card .metric-value { font-size: 2rem; font-weight: 700; color: #a78bfa; }
-.metric-card .metric-label { font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
-.badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; }
-.badge-positive { background: rgba(34,197,94,0.20); color: #4ade80; border: 1px solid rgba(74,222,128,0.35); }
-.badge-neutral  { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.30); }
-.badge-negative { background: rgba(239,68,68,0.20); color: #f87171; border: 1px solid rgba(248,113,113,0.35); }
-.section-header { font-size: 1.05rem; font-weight: 600; color: #c4b5fd; letter-spacing: 0.04em; margin-bottom: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(196,181,253,0.20); }
-.highlight-box { background: linear-gradient(135deg,rgba(245,158,11,0.12),rgba(234,88,12,0.08)); border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; margin-bottom: 0.6rem; color: #fde68a; font-size: 0.9rem; }
-.action-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0.9rem 1.1rem; margin-bottom: 0.6rem; border-left: 3px solid #8b5cf6; }
-.action-item .task-text { color: #e2e8f0; font-size: 0.95rem; font-weight: 500; }
-.action-item .meta-text { color: #94a3b8; font-size: 0.8rem; margin-top: 0.3rem; }
-.speaker-bar-wrap { margin-bottom: 1rem; }
-.speaker-bar-label { color: #e2e8f0; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.25rem; }
-.speaker-bar-bg { background: rgba(255,255,255,0.08); border-radius: 999px; height: 10px; overflow: hidden; }
-.speaker-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#8b5cf6,#3b82f6); }
-[data-testid="stTabs"] button { color: #94a3b8 !important; font-weight: 500; border-radius: 8px 8px 0 0; padding: 0.5rem 1rem; }
-[data-testid="stTabs"] button[aria-selected="true"] { color: #a78bfa !important; border-bottom: 2px solid #8b5cf6 !important; background: rgba(139,92,246,0.10) !important; }
-.stButton > button { background: linear-gradient(135deg,#7c3aed,#4f46e5); color: white; border: none; border-radius: 10px; padding: 0.55rem 1.5rem; font-weight: 600; font-size: 0.95rem; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(124,58,237,0.35); }
-.stButton > button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.5); }
-[data-testid="stFileUploader"] { border: 2px dashed rgba(139,92,246,0.35) !important; border-radius: 12px !important; background: rgba(139,92,246,0.05) !important; }
-textarea { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 10px !important; color: #e2e8f0 !important; font-family: 'Noto Sans JP','Inter',monospace !important; }
-.stProgress > div > div { background: linear-gradient(90deg,#7c3aed,#3b82f6) !important; border-radius: 999px !important; }
-.pii-badge { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); border-radius: 8px; padding: 0.5rem 0.9rem; color: #34d399; font-size: 0.82rem; margin-bottom: 0.8rem; display: inline-block; }
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.4); border-radius: 3px; }
+@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+/* ── Palette ─────────────────────────────────────────────────────────────── */
+:root {
+    /* Backgrounds */
+    --washi:        #FDF8F5;   /* warm off-white, like washi paper */
+    --surface:      #FFFCFA;   /* card surface */
+    --surface-warm: #FEF3ED;   /* slightly more peach, for hover/active */
+
+    /* Borders */
+    --rule:         #EDE0D8;   /* warm beige rule */
+    --rule-soft:    #F3E8E1;   /* very soft rule */
+
+    /* Text */
+    --ink:          #3D2B1F;   /* warm dark brown, not harsh black */
+    --ink-mid:      #7A5C50;   /* medium warm brown */
+    --ink-soft:     #A8897C;   /* muted rose-brown */
+    --ink-faint:    #C4A99E;   /* very light, for labels */
+
+    /* Accent — sakura */
+    --sakura:       #E8829A;   /* sakura pink main */
+    --sakura-deep:  #C45C74;   /* deeper sakura for hover */
+    --sakura-light: #F7C5D0;   /* light sakura for backgrounds */
+    --sakura-pale:  #FDE8ED;   /* very pale sakura */
+
+    /* Peach */
+    --peach:        #F4A07A;   /* warm peach accent */
+    --peach-light:  #FDE8D8;   /* pale peach */
+    --peach-pale:   #FEF3ED;   /* very pale peach */
+
+    /* Gold — for Japanese elements */
+    --gold:         #C9924A;   /* warm gold */
+    --gold-light:   #F2DFC0;   /* pale gold */
+
+    /* Status */
+    --green:        #5A7D6B;   /* muted sage green */
+    --green-pale:   #E0EDE7;
+    --red:          #C0514A;   /* muted rose red */
+    --red-pale:     #FAE8E7;
+    --amber:        #B07D3A;
+    --amber-pale:   #FAF0DC;
+
+    --radius:    6px;
+    --radius-lg: 10px;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+}
+.stApp { background: var(--washi); }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: var(--surface);
+    border-right: 1px solid var(--rule);
+}
+[data-testid="stSidebar"] .stMarkdown p { font-size: 0.82rem; color: var(--ink-mid); }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 0.8rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+    border-color: var(--sakura-light);
+    box-shadow: 0 3px 14px rgba(232,130,154,0.10);
+}
+
+/* ── Metric cards ────────────────────────────────────────────────────────── */
+.metric-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--sakura);
+    border-radius: var(--radius);
+    padding: 1.1rem 0.8rem;
+    text-align: center;
+}
+.metric-value {
+    font-size: 1.9rem; font-weight: 600;
+    color: var(--sakura-deep); line-height: 1.1;
+}
+.metric-label {
+    font-size: 0.6rem; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-top: 0.4rem;
+}
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+.sh {
+    font-size: 0.68rem; font-weight: 600;
+    color: var(--ink-soft); letter-spacing: 0.14em;
+    text-transform: uppercase; margin-bottom: 0.9rem;
+    padding-bottom: 0.45rem; border-bottom: 1px solid var(--rule);
+}
+
+/* ── Action items ────────────────────────────────────────────────────────── */
+.action-row {
+    display: flex; align-items: flex-start; gap: 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--sakura);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    padding: 0.95rem 1.2rem; margin-bottom: 0.65rem;
+    transition: border-color 0.15s;
+}
+.action-row:hover { border-color: var(--sakura-light); border-left-color: var(--sakura-deep); }
+.action-row.flagged { border-left-color: var(--red); background: var(--red-pale); }
+.action-task { font-weight: 500; color: var(--ink); font-size: 0.91rem; }
+.action-meta { font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.3rem; }
+.action-flag { font-size: 0.74rem; color: var(--red); margin-top: 0.25rem; }
+
+/* ── Sentiment rows ──────────────────────────────────────────────────────── */
+.sentiment-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: var(--radius-lg); padding: 0.85rem 1.1rem;
+    margin-bottom: 0.55rem;
+    transition: background 0.15s;
+}
+.sentiment-row:hover { background: var(--peach-pale); }
+.sentiment-name  { font-weight: 500; font-size: 0.89rem; color: var(--ink); min-width: 120px; }
+.sentiment-label { font-size: 0.78rem; color: var(--ink-soft); flex: 1; }
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+    display: inline-block; padding: 0.2rem 0.7rem;
+    border-radius: 999px; font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+}
+.badge-positive { background: var(--green-pale);  color: var(--green); }
+.badge-neutral  { background: var(--peach-pale);  color: var(--ink-mid); }
+.badge-negative { background: var(--red-pale);    color: var(--red); }
+
+/* ── Cultural signals ────────────────────────────────────────────────────── */
+.signal-high {
+    background: var(--red-pale); border-left: 3px solid var(--red);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-medium {
+    background: var(--amber-pale); border-left: 3px solid var(--amber);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-low {
+    background: var(--sakura-pale); border-left: 3px solid var(--sakura-light);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-phrase  { font-weight: 600; font-size: 0.9rem; font-family: 'Noto Sans JP', sans-serif; color: var(--ink); }
+.signal-reading { font-size: 0.79rem; color: var(--ink-mid); margin-top: 0.15rem; }
+.signal-exp     { font-size: 0.77rem; color: var(--ink-soft); margin-top: 0.4rem; line-height: 1.5; }
+
+/* ── Speaker bars ────────────────────────────────────────────────────────── */
+.spk-bar-bg   { background: var(--rule); border-radius: 999px; height: 7px; overflow: hidden; margin-top: 0.4rem; }
+.spk-bar-fill { height: 100%; border-radius: 999px; }
+
+/* ── PII pill ────────────────────────────────────────────────────────────── */
+.pii-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--green-pale); border: 1px solid #A8C9B5;
+    border-radius: 999px; padding: 0.3rem 0.9rem;
+    font-size: 0.75rem; color: var(--green); font-weight: 500; margin-bottom: 1rem;
+}
+
+/* ── Risk pill ───────────────────────────────────────────────────────────── */
+.risk-pill {
+    display: inline-block; padding: 0.3rem 0.9rem;
+    border-radius: 999px; font-size: 0.73rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+}
+.risk-HIGH    { background: var(--red-pale);    color: var(--red); }
+.risk-MEDIUM  { background: var(--amber-pale);  color: var(--amber); }
+.risk-LOW     { background: var(--sakura-pale); color: var(--sakura-deep); }
+.risk-MINIMAL { background: var(--peach-pale);  color: var(--ink-soft); }
+.risk-NONE    { background: var(--green-pale);  color: var(--green); }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tablist"] {
+    border-bottom: 1px solid var(--rule); gap: 0;
+    background: transparent;
+}
+[data-testid="stTabs"] button {
+    color: var(--ink-soft) !important; font-weight: 400;
+    font-size: 0.84rem; padding: 0.55rem 1.1rem;
+    border-radius: 0; border-bottom: 2px solid transparent !important;
+    margin-bottom: -1px; transition: color 0.15s;
+}
+[data-testid="stTabs"] button:hover { color: var(--sakura) !important; }
+[data-testid="stTabs"] button[aria-selected="true"] {
+    color: var(--sakura-deep) !important; font-weight: 600;
+    border-bottom: 2px solid var(--sakura) !important;
+    background: transparent !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.stButton > button {
+    background: var(--sakura); color: #FFFCFA;
+    border: none; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500; font-size: 0.87rem;
+    padding: 0.55rem 1.5rem; letter-spacing: 0.01em;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+.stButton > button:hover  { background: var(--sakura-deep); }
+.stButton > button:active { transform: scale(0.98); }
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+textarea {
+    background: var(--surface) !important;
+    border: 1px solid var(--rule) !important;
+    color: var(--ink) !important;
+    border-radius: var(--radius-lg) !important;
+    font-family: 'Noto Sans JP', 'DM Sans', sans-serif !important;
+    font-size: 0.85rem !important;
+}
+textarea:focus { border-color: var(--sakura-light) !important; }
+[data-testid="stFileUploader"] { background: transparent !important; }
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+.stProgress > div > div {
+    background: linear-gradient(90deg, var(--sakura), var(--peach)) !important;
+    border-radius: 999px !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--washi); }
+::-webkit-scrollbar-thumb { background: var(--sakura-light); border-radius: 999px; }
+
+/* ── Toggle ──────────────────────────────────────────────────────────────── */
+[data-testid="stToggle"] input:checked + div { background: var(--sakura) !important; }
+
+/* ── Selectbox ───────────────────────────────────────────────────────────── */
+[data-testid="stSelectbox"] > div > div {
+    border-color: var(--rule) !important;
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+}
+
+/* ── Info / warning / success ────────────────────────────────────────────── */
+.stAlert { border-radius: var(--radius-lg) !important; }
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--rule); margin: 1rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Sample transcript
-# ─────────────────────────────────────────────────────────────────────────────
-SAMPLE_TRANSCRIPT = """田中: おはようございます、田中です。本日はお時間をいただきありがとうございます。
-鈴木: こちらこそ、よろしくお願いいたします。鈴木です。
-田中: まず、Q4の進捗についてご報告させていただきます。売上KPIは現時点で目標の98%に達しており、ほぼ計画通りです。
-鈴木: そうですね、順調に進んでいるようで安心しました。ただ、新機能のリリーススケジュールについては、少し懸念がございます。
-田中: Yes, I understand your concern. The release is scheduled for April 1st, but we may need a buffer.
-鈴木: 検討いたします。技術チームとも相談してみますが、難しいかもしれません。できれば前向きに対応したいと思います。
-田中: Understood. では、リリース日を鈴木さんの方でサインオフをいただければ、我々は準備を進めます。
-鈴木: 承知しました。来週の月曜日までに確認いたします。
-田中: ありがとうございます。次に、顧客からのフィードバック対応についてですが、サポートチームの増員が必要だと考えています。
-鈴木: そうですね、確認してみます。サポートマニュアルの改訂も同時に進めた方が良いかもしれません。
-田中: 同感です。鈴木さん、マニュアルのドラフト作成をお願いできますか？来週の金曜日までにレビュー用に提出していただければ。
+# ── Sample transcript ────────────────────────────────────────────────────────
+SAMPLE_TRANSCRIPT = """田中: おはようございます。本日はお時間をいただきありがとうございます。
+鈴木: こちらこそ、よろしくお願いいたします。
+田中: Q4の進捗ですが、売上KPIは目標の98%に達しています。
+鈴木: 順調ですね。ただ、新機能のリリーススケジュールについては少し懸念がございます。
+田中: Yes, I understand. The release is April 1st — we may need a short buffer.
+鈴木: 検討いたします。技術チームとも相談しますが、難しいかもしれません。前向きに対応したいと思います。
+田中: Understood. では鈴木さんにサインオフをお願いできますか？
+鈴木: 承知しました。来週月曜までに確認いたします。
+田中: ありがとうございます。次に、サポートチームの増員についてですが。
+鈴木: 確認してみます。サポートマニュアルの改訂も同時に進めた方が良いかもしれません。
+田中: 同感です。鈴木さん、来週金曜までにドラフトをお願いできますか？
 鈴木: かしこまりました。対応いたします。
-田中: では、次回のミーティングは来週金曜日の15:00に設定しましょう。議事録は田中が担当します。
-鈴木: 承知いたしました。本日はありがとうございました。
-田中: こちらこそ、よろしくお願いいたします。それでは失礼いたします。
-鈴木: 失礼いたします。"""
+田中: では次回は来週金曜15:00に。議事録は田中が担当します。
+鈴木: 承知いたしました。お疲れ様でした。"""
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Session state
-# ─────────────────────────────────────────────────────────────────────────────
-for key, default in [
-    ("history", []),
-    ("results", None),
-    ("current_transcript", ""),
-    ("current_language", ""),
-    ("transcript_text", ""),
-    ("pii_report", None),
+# ── Session state ────────────────────────────────────────────────────────────
+for k, v in [
+    ("history", []), ("results", None), ("current_transcript", ""),
+    ("current_language", ""), ("transcript_text", ""), ("pii_report", None),
 ]:
-    if key not in st.session_state:
-        st.session_state[key] = default
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Sidebar
-# ─────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# SIDEBAR
+# ────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style='text-align:center; padding:1rem 0 0.5rem;'>
-        <div style='font-size:2.5rem;'>🎙️</div>
-        <div style='font-size:1.1rem; font-weight:700; color:#e2e8f0; margin-top:0.3rem;'>TranscriptAI</div>
-        <div style='font-size:0.75rem; color:#94a3b8; margin-top:0.2rem;'>Japanese Business Intelligence</div>
+    <div style='padding:1.8rem 0.5rem 1.2rem;'>
+      <div style='font-size:1.6rem; margin-bottom:0.4rem;'>🌸</div>
+      <div style='font-size:1rem; font-weight:600; color:#3D2B1F; letter-spacing:0.01em;'>
+        TranscriptAI
+      </div>
+      <div style='font-size:0.62rem; color:#C4A99E; letter-spacing:0.14em;
+                  text-transform:uppercase; margin-top:0.2rem;'>
+        Business Intelligence
+      </div>
     </div>
-    <hr style='border-color:rgba(255,255,255,0.1); margin:1rem 0;'/>
+    <hr style='border:none; border-top:1px solid #EDE0D8; margin:0 0 1rem;'/>
     """, unsafe_allow_html=True)
 
-    st.markdown("<div class='section-header'>🌐 Language</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sh'>Language</div>", unsafe_allow_html=True)
     lang_choice = st.selectbox(
-        "Language",
-        options=["Auto-detect", "Japanese (日本語)", "English"],
+        "lang",
+        ["Auto-detect", "Japanese (日本語)", "English", "Hindi (हिन्दी)"],
         label_visibility="collapsed",
     )
-    lang_map = {"Auto-detect": None, "Japanese (日本語)": "ja", "English": "en"}
+    lang_map = {
+        "Auto-detect": None, "Japanese (日本語)": "ja",
+        "English": "en", "Hindi (हिन्दी)": "hi"
+    }
     forced_lang = lang_map[lang_choice]
 
-    # PII toggle
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:1rem 0;'/>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1rem 0;'/>", unsafe_allow_html=True)
     if PII_AVAILABLE:
-        st.markdown("<div class='section-header'>🔒 Privacy (APPI)</div>", unsafe_allow_html=True)
+        st.markdown("<div class='sh'>Privacy · APPI</div>", unsafe_allow_html=True)
         pii_enabled = st.toggle("Mask PII before analysis", value=True,
-                                help="Anonymizes names, phones, emails before sending to LLM. Required for APPI compliance.")
+            help="Names, phones, emails anonymized before LLM. Restored locally after.")
         if pii_enabled:
-            st.markdown("<div style='color:#34d399; font-size:0.78rem;'>✅ APPI compliant mode ON</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.75rem; color:#5A7D6B; margin-top:0.2rem;'>✓ APPI compliant</div>", unsafe_allow_html=True)
     else:
         pii_enabled = False
 
-    # Streaming mode toggle
     if STREAMING_AVAILABLE:
-        st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:0.8rem 0;'/>", unsafe_allow_html=True)
-        st.markdown("<div class='section-header'>⚡ Analysis Mode</div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1rem 0;'/>", unsafe_allow_html=True)
+        st.markdown("<div class='sh'>Mode</div>", unsafe_allow_html=True)
         stream_mode = st.toggle("Stream results live", value=False,
-                                help="See summary as it generates — requires Groq API key")
+            help="See summary generate in real time — requires Groq API key")
     else:
         stream_mode = False
 
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:1rem 0;'/>", unsafe_allow_html=True)
-    st.markdown("<div class='section-header'>🕘 Recent Analyses</div>", unsafe_allow_html=True)
-
+    st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1rem 0;'/>", unsafe_allow_html=True)
+    st.markdown("<div class='sh'>Recent Analyses</div>", unsafe_allow_html=True)
     if not st.session_state.history:
-        st.markdown("<div style='color:#64748b; font-size:0.82rem; padding:0.5rem 0;'>No analyses yet.<br>Run your first analysis to see history here.</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.8rem; color:#C4A99E; padding:0.3rem 0;'>No analyses yet.</div>", unsafe_allow_html=True)
     else:
-        for i, entry in enumerate(st.session_state.history):
+        for i, entry in enumerate(st.session_state.history[:6]):
             label = format_history_label(entry)
-            if st.button(f"📄 {label[:45]}…" if len(label) > 45 else f"📄 {label}", key=f"hist_{i}", use_container_width=True):
-                st.session_state.results = entry["results"]
+            short = (label[:36] + "…") if len(label) > 36 else label
+            if st.button(f"↩  {short}", key=f"h_{i}", use_container_width=True):
+                st.session_state.results            = entry["results"]
                 st.session_state.current_transcript = entry["transcript"]
-                st.session_state.current_language = entry["language"]
-                st.session_state.transcript_text = entry["transcript"]
+                st.session_state.current_language   = entry["language"]
+                st.session_state.transcript_text    = entry["transcript"]
                 st.rerun()
 
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:1rem 0;'/>", unsafe_allow_html=True)
-    with st.expander("ℹ️ About"):
+    st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1rem 0;'/>", unsafe_allow_html=True)
+    with st.expander("About"):
         st.markdown("""
-**TranscriptAI** analyzes meeting transcripts with specialized support for Japanese business communication.
+**TranscriptAI** converts meeting recordings into structured business intelligence.
 
-**Supported formats:** `.txt` `.vtt` `.json`
+**Input** &nbsp;·&nbsp; TXT · VTT · JSON · MP4 · MP3 · WAV
 
-**Japan-specific features:**
-- 敬語 (Keigo) register detection
-- Nemawashi cue extraction
-- Code-switching counter (JA↔EN)
-- APPI-compliant PII masking
+**Languages** &nbsp;·&nbsp; Japanese · English · Hindi · Mixed
 
-*Swap the LLM in `analyzer.py` — Claude, GPT-4, or Gemini.*
+**Japan layer** &nbsp;·&nbsp; Keigo · Nemawashi · Soft rejection · Code-switch
+
+*Set `GROQ_API_KEY` for 3s cloud inference. Or run Ollama locally.*
 """)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main header
-# ─────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# HEADER
+# ────────────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style='text-align:center; padding:2rem 0 1rem;'>
-    <h1 style='font-size:2.4rem; font-weight:800;
-               background:linear-gradient(135deg,#a78bfa,#60a5fa);
-               -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-               background-clip:text; margin:0;'>
-        🎙️ Call Transcript Analyzer
+<div style='padding:2rem 0 1.4rem;'>
+  <div style='font-size:0.63rem; color:#C4A99E; letter-spacing:0.18em;
+              text-transform:uppercase; margin-bottom:0.7rem;'>
+    Meeting Intelligence Platform
+  </div>
+  <div style='display:flex; align-items:baseline; gap:0.8rem; flex-wrap:wrap;'>
+    <h1 style='font-size:2rem; font-weight:600; color:#3D2B1F;
+               margin:0; letter-spacing:-0.02em; line-height:1;'>
+      Transcript Analyzer
     </h1>
-    <p style='color:#94a3b8; margin-top:0.5rem; font-size:1rem;'>
-        AI-powered meeting intelligence · Japanese business culture optimized
-    </p>
+    <span style='font-size:1.3rem; font-weight:300; color:#C9924A;
+                 font-family:"Noto Sans JP",sans-serif;'>
+      議事録分析
+    </span>
+  </div>
+  <p style='color:#A8897C; font-size:0.86rem; margin-top:0.6rem; font-weight:300; line-height:1.6;'>
+    AI-powered &nbsp;·&nbsp; APPI compliant &nbsp;·&nbsp; Japanese business culture optimized
+  </p>
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Input section
-# ─────────────────────────────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>📄 Transcript Input</div>", unsafe_allow_html=True)
+# ────────────────────────────────────────────────────────────────────────────
+# INPUT
+# ────────────────────────────────────────────────────────────────────────────
+st.markdown("<div class='sh'>Transcript Input</div>", unsafe_allow_html=True)
 
-col_upload, col_paste = st.columns([1, 1], gap="large")
+col_up, col_paste = st.columns([1, 1], gap="large")
 
-with col_upload:
-    st.markdown("<div style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0.4rem;'>Upload a file <span style='color:#6366f1; font-size:0.78rem;'>(TXT · VTT · JSON · MP4 · MP3 · WAV)</span></div>", unsafe_allow_html=True)
-    # Build accepted types
-    accepted = ["txt", "vtt", "json"]
-    if AUDIO_AVAILABLE:
-        accepted += ["mp4", "mp3", "wav", "m4a", "webm"]
-
+with col_up:
+    st.markdown("<div style='font-size:0.79rem; color:#A8897C; margin-bottom:0.5rem;'>Upload file &nbsp;·&nbsp; TXT · VTT · JSON · MP4 · MP3 · WAV</div>", unsafe_allow_html=True)
+    accepted = ["txt", "vtt", "json"] + (["mp4","mp3","wav","m4a","webm"] if AUDIO_AVAILABLE else [])
     uploaded = st.file_uploader("Upload", type=accepted, label_visibility="collapsed")
+
     if uploaded is not None:
         ext = uploaded.name.lower().split(".")[-1]
-        if ext in ["mp4", "mp3", "wav", "m4a", "webm", "ogg"]:
-            file_size_mb = len(uploaded.getvalue()) / (1024 * 1024)
-            if file_size_mb > MAX_FILE_SIZE_MB:
-                st.error(f"⚠️ File too large ({file_size_mb:.1f}MB). Max: {MAX_FILE_SIZE_MB}MB")
+        if ext in ["mp4","mp3","wav","m4a","webm","ogg"]:
+            size_mb = len(uploaded.getvalue()) / (1024 * 1024)
+            if size_mb > MAX_FILE_SIZE_MB:
+                st.error(f"File too large ({size_mb:.1f} MB). Max: {MAX_FILE_SIZE_MB} MB")
             else:
-                with st.spinner(f"🎙️ Transcribing {uploaded.name} ({file_size_mb:.1f}MB)…"):
-                    result = transcribe_audio(uploaded.getvalue(), uploaded.name)
-                if result["success"]:
-                    transcript = format_transcript_with_timestamps(result.get("segments", []))
-                    if not transcript:
-                        transcript = result["text"]
-                    st.session_state.transcript_text = transcript
-                    provider = result.get("provider", "unknown")
-                    lang     = result.get("language", "?")
-                    duration = result.get("duration", 0)
-                    st.success(
-                        f"✅ Transcribed **{uploaded.name}** · "
-                        f"{duration:.0f}s audio · Language: {lang} · via {provider}"
-                    )
+                with st.spinner(f"Transcribing {uploaded.name}…"):
+                    res = transcribe_audio(uploaded.getvalue(), uploaded.name)
+                if res["success"]:
+                    seg = format_transcript_with_timestamps(res.get("segments", []))
+                    st.session_state.transcript_text = seg or res["text"]
+                    st.success(f"✓ Transcribed · {res.get('duration',0):.0f}s · {res.get('language','?')} · {res.get('provider','')}")
                 else:
-                    st.error(f"❌ Transcription failed: {result.get('error', 'Unknown error')}")
+                    st.error(res.get("error", "Transcription failed"))
         else:
             parsed = parse_uploaded_file(uploaded)
             st.session_state.transcript_text = parsed
-            st.success(f"✅ Loaded **{uploaded.name}** · {len(parsed):,} chars")
+            st.success(f"✓ Loaded {uploaded.name} · {len(parsed):,} chars")
 
 with col_paste:
-    st.markdown("<div style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0.4rem;'>Or paste transcript</div>", unsafe_allow_html=True)
-    transcript_input = st.text_area(
-        "Paste",
-        value=st.session_state.transcript_text,
-        height=220,
-        placeholder="Paste your transcript here…\n\nSupports Japanese, English, and mixed JA/EN text.",
+    st.markdown("<div style='font-size:0.79rem; color:#A8897C; margin-bottom:0.5rem;'>Or paste transcript directly</div>", unsafe_allow_html=True)
+    inp = st.text_area(
+        "Transcript", value=st.session_state.transcript_text, height=210,
+        placeholder="Paste transcript here…\n\nSupports Japanese, English, Hindi, and mixed text.",
         label_visibility="collapsed",
     )
-    if transcript_input != st.session_state.transcript_text:
-        st.session_state.transcript_text = transcript_input
+    if inp != st.session_state.transcript_text:
+        st.session_state.transcript_text = inp
 
-col_btn_sample, col_btn_clear, col_spacer = st.columns([0.22, 0.15, 0.63])
-with col_btn_sample:
-    if st.button("📋 Load sample transcript"):
+c_sample, c_clear, _ = st.columns([0.2, 0.14, 0.66])
+with c_sample:
+    if st.button("Load sample"):
         st.session_state.transcript_text = SAMPLE_TRANSCRIPT
         st.rerun()
-with col_btn_clear:
-    if st.button("🗑️ Clear"):
+with c_clear:
+    if st.button("Clear"):
         st.session_state.transcript_text = ""
-        st.session_state.results = None
+        st.session_state.results   = None
         st.session_state.pii_report = None
         st.rerun()
 
 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-final_text = clean_text(st.session_state.transcript_text or "")
-analyze_disabled = len(final_text.strip()) < 20
+final_text  = clean_text(st.session_state.transcript_text or "")
+can_analyze = len(final_text.strip()) >= 20
 
-col_analyze, col_lang_display = st.columns([0.35, 0.65])
-with col_analyze:
-    run_analysis = st.button("🔍 Analyze Transcript", disabled=analyze_disabled, use_container_width=True)
-with col_lang_display:
+c_btn, c_meta = st.columns([0.3, 0.7])
+with c_btn:
+    run_analysis = st.button("Analyze Transcript →", disabled=not can_analyze, use_container_width=True)
+with c_meta:
     if final_text:
-        detected = detect_language(final_text)
-        active_lang = forced_lang if forced_lang else detected
-        word_count = len(final_text.split())
+        detected     = detect_language(final_text)
+        active_disp  = forced_lang or detected
+        wc           = len(final_text.split())
+        lang_color   = {"ja":"#C45C74","hi":"#C9924A","en":"#5A7D6B","mixed":"#A8897C"}.get(detected,"#A8897C")
         st.markdown(
-            f"<div style='padding-top:0.55rem; color:#94a3b8; font-size:0.87rem;'>"
-            f"Detected: {language_display_name(detected)} &nbsp;|&nbsp; "
-            f"Active: <span style='color:#a78bfa; font-weight:600;'>{language_display_name(active_lang)}</span>"
-            f" &nbsp;|&nbsp; {word_count:,} words"
-            f"</div>",
+            f"<div style='padding-top:0.6rem; font-size:0.81rem; color:#A8897C;'>"
+            f"Detected <span style='color:{lang_color}; font-weight:600;'>{language_display_name(detected)}</span>"
+            f" &nbsp;·&nbsp; Active <span style='color:#C45C74; font-weight:600;'>{language_display_name(active_disp)}</span>"
+            f" &nbsp;·&nbsp; {wc:,} words</div>",
             unsafe_allow_html=True,
         )
 
-if analyze_disabled and not final_text:
-    st.info("Paste a transcript or upload a file, then click **Analyze Transcript**.")
+if not can_analyze and not final_text:
+    st.markdown("<div style='font-size:0.82rem; color:#C4A99E; padding:0.4rem 0;'>Paste a transcript or upload a file to begin.</div>", unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Run analysis
-# ─────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# ANALYSIS
+# ────────────────────────────────────────────────────────────────────────────
 if run_analysis and final_text:
     detected_lang = detect_language(final_text)
-    active_lang = forced_lang if forced_lang else detected_lang
+    active_lang   = forced_lang or detected_lang
 
-    progress_placeholder = st.empty()
-    with progress_placeholder.container():
-        progress_bar = st.progress(0, text="🔍 Detecting language…")
-        time.sleep(0.3)
-        progress_bar.progress(15, text="🔒 Masking PII (APPI compliance)…" if pii_enabled and PII_AVAILABLE else "📊 Preparing transcript…")
+    ph = st.empty()
+    with ph.container():
+        bar = st.progress(0, text="Detecting language…")
+        time.sleep(0.2)
 
-        # ── PII MASKING ──
-        pii_report = None
-        text_to_analyze = final_text
         pii_mask = None
+        text_in  = final_text
 
         if pii_enabled and PII_AVAILABLE:
-            text_to_analyze, pii_mask = mask_transcript(final_text)
-            pii_report = get_pii_report(pii_mask)
-            st.session_state.pii_report = pii_report
+            bar.progress(20, text="Masking PII (APPI compliance)…")
+            text_in, pii_mask = mask_transcript(final_text)
+            st.session_state.pii_report = get_pii_report(pii_mask)
 
-        progress_bar.progress(35, text="🤖 Running AI analysis…")
-        with st.spinner("Analyzing transcript · this may take 1–2 minutes locally…"):
-            results = analyze_transcript(text_to_analyze, active_lang)
+        bar.progress(35, text="Running AI analysis…")
+        with st.spinner("Analyzing · ~3s with Groq · 1–2 min with Ollama"):
+            results = analyze_transcript(text_in, active_lang)
 
-        # Restore real names in results
-        # CRITICAL ORDER: restore PII BEFORE speaker normalization
-        # Otherwise normalizer sees [NAME_2] and cannot resolve identities
         if pii_mask is not None:
             results = restore_pii_in_result(results, pii_mask)
-            pii_mask = None  # mark as restored so we don't restore twice
 
-        progress_bar.progress(85, text="🎨 Formatting results…")
+        bar.progress(92, text="Finalizing results…")
+        time.sleep(0.2)
+        bar.progress(100, text="Complete ✓")
         time.sleep(0.3)
-        progress_bar.progress(100, text="✅ Analysis complete!")
-        time.sleep(0.4)
+    ph.empty()
 
-    progress_placeholder.empty()
-
-    st.session_state.results  = results
+    st.session_state.results            = results
     st.session_state.current_transcript = final_text
     st.session_state.current_language   = active_lang
 
-    # Fix 3: UX failure feedback
-    provider = results.get("_provider", "unknown")
-    error    = results.get("_last_error", "")
+    provider = results.get("_provider", "")
     duration = results.get("_duration_ms", 0)
-
     if "mock" in provider:
-        if "no_key" in provider:
-            st.warning("⚠️ No API key found — showing demo data. Add GROQ_API_KEY in Streamlit secrets for real analysis.")
-        elif "timeout" in provider:
-            st.warning("⚠️ Analysis timed out after retries — showing demo data. Try a shorter transcript.")
-        elif "offline" in provider:
-            st.warning("⚠️ AI model offline — showing demo data. Start Ollama or add GROQ_API_KEY.")
-        else:
-            st.info("ℹ️ Running in demo mode — showing sample data.")
+        msgs = {
+            "no_key":  "No API key — add GROQ_API_KEY for real analysis.",
+            "timeout": "Analysis timed out. Try a shorter transcript.",
+            "offline": "Ollama offline. Start Ollama or add GROQ_API_KEY.",
+        }
+        reason = next((msgs[k] for k in msgs if k in provider), "Demo mode active.")
+        st.warning(f"⚠ {reason}")
     else:
-        st.success(f"✅ Analysis complete · Provider: {provider} · {round(duration/1000, 1)}s")
+        st.success(f"✓ Analysis complete · {provider} · {duration/1000:.1f}s")
 
-    history_entry = {
+    st.session_state.history = add_to_history(st.session_state.history, {
         "timestamp": datetime.now().isoformat(),
-        "language": active_lang,
-        "snippet": final_text[:80],
-        "transcript": final_text,
-        "results": results,
-    }
-    st.session_state.history = add_to_history(st.session_state.history, history_entry)
-    st.success("✅ Analysis complete!")
+        "language":  active_lang,
+        "snippet":   final_text[:80],
+        "transcript":final_text,
+        "results":   results,
+    })
     st.rerun()
 
-
-# ── STREAMING MODE ─────────────────────────────────────────────────────────
-if "stream_mode" in dir() and stream_mode and final_text and not run_analysis:
-    if st.button("⚡ Stream Live Summary", key="stream_btn", use_container_width=False):
-        st.markdown("<div class='section-header'>⚡ Live Summary Stream</div>", unsafe_allow_html=True)
+# ── Streaming ────────────────────────────────────────────────────────────────
+if STREAMING_AVAILABLE and stream_mode and final_text and not run_analysis:
+    if st.button("⚡ Stream Live Summary"):
+        st.markdown("<div class='sh'>Live Summary</div>", unsafe_allow_html=True)
         try:
-            st.write_stream(stream_transcript_groq(final_text, 
-                st.session_state.get("current_language", "en")))
+            st.write_stream(stream_transcript_groq(
+                final_text, st.session_state.get("current_language","en")
+            ))
         except Exception as e:
-            st.error(f"Streaming error: {e}")
+            st.error(str(e))
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Results dashboard
-# ─────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# RESULTS
+# ────────────────────────────────────────────────────────────────────────────
 if st.session_state.results:
-    results  = st.session_state.results
+    R        = st.session_state.results
     language = st.session_state.current_language
-    transcript = st.session_state.current_transcript
-    pii_report = st.session_state.pii_report
+    pii_rep  = st.session_state.pii_report
+    features = get_features(language)
 
-    st.markdown("<hr style='border-color:rgba(255,255,255,0.08); margin:1.5rem 0 1rem;'/>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1.6rem 0 1rem;'/>", unsafe_allow_html=True)
 
-    # PII badge
-    if pii_report:
-        n = pii_report.get("total_pii_found", 0)
+    # PII pill
+    if pii_rep and pii_rep.get("total_pii_found", 0) > 0:
+        n = pii_rep["total_pii_found"]
         st.markdown(
-            f"<div class='pii-badge'>🔒 APPI Compliant — {n} PII item{'s' if n != 1 else ''} masked before AI processing</div>",
+            f"<div class='pii-pill'>🔒 APPI — {n} item{'s' if n!=1 else ''} anonymized before analysis</div>",
             unsafe_allow_html=True,
         )
 
-    st.markdown("<div style='font-size:1.5rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;'>📊 Analysis Results</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='font-size:1.2rem; font-weight:600; color:#3D2B1F; margin-bottom:1rem;'>"
+        "Analysis Results</div>",
+        unsafe_allow_html=True,
+    )
 
-    # Quick stats
-    c1, c2, c3, c4 = st.columns(4)
-    summary_count = len(results.get("summary", []))
-    with c1:
-        st.markdown(f"<div class='metric-card'><div class='metric-value'>{len(results.get('speakers', []))}</div><div class='metric-label'>Speakers</div></div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='metric-card'><div class='metric-value'>{len(results.get('action_items', []))}</div><div class='metric-label'>Action Items</div></div>", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"<div class='metric-card'><div class='metric-value'>{results.get('japan_insights', {}).get('code_switch_count', 0)}</div><div class='metric-label'>Code Switches</div></div>", unsafe_allow_html=True)
-    with c4:
-        lang_name = language_display_name(language).split(" ", 1)[-1]
-        st.markdown(f"<div class='metric-card'><div class='metric-value' style='font-size:1.3rem;'>{lang_name}</div><div class='metric-label'>Language</div></div>", unsafe_allow_html=True)
+    # Stats row
+    ji = R.get("japan_insights", {})
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{len(R.get('speakers',[]))}</div><div class='metric-label'>Speakers</div></div>", unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{len(R.get('action_items',[]))}</div><div class='metric-label'>Action Items</div></div>", unsafe_allow_html=True)
+    with m3:
+        cs_val = ji.get("code_switch_count","—") if features.get("show_code_switch") else "—"
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{cs_val}</div><div class='metric-label'>Code Switches</div></div>", unsafe_allow_html=True)
+    with m4:
+        if features.get("show_japan_insights"):
+            mv = ji.get("keigo_level","—").title()
+            ml = "Keigo Level"
+        else:
+            mv = language_display_name(language).split(" ",1)[-1]
+            ml = "Language"
+        st.markdown(f"<div class='metric-card'><div class='metric-value' style='font-size:1.2rem;'>{mv}</div><div class='metric-label'>{ml}</div></div>", unsafe_allow_html=True)
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:0.7rem'></div>", unsafe_allow_html=True)
 
-    export_json = build_export_json(transcript, language, results)
-    st.download_button("⬇️ Export results as JSON", data=export_json.encode("utf-8"),
-                       file_name=export_filename(language), mime="application/json")
-
+    exp = build_export_json(st.session_state.current_transcript, language, R)
+    st.download_button(
+        "Export JSON ↓", data=exp.encode(),
+        file_name=export_filename(language), mime="application/json",
+    )
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Build tabs dynamically ──
-    tab_labels = ["📝 Summary", "✅ Action Items", "😊 Sentiment", "🎤 Speakers", "🇯🇵 Japan Insights"]
+    # ── Dynamic tabs ──────────────────────────────────────────────────────────
+    tab_labels = ["📝  Summary", "✅  Actions", "🌸  Sentiment", "🎤  Speakers"]
+    if features.get("insight_tab_enabled"):
+        tab_labels.append(features.get("insight_tab_label", "🌐  Insights"))
     if EVAL_AVAILABLE:
-        tab_labels.append("📊 Evaluation")
+        tab_labels.append("📊  Evaluation")
 
-    tabs = st.tabs(tab_labels)
-    tab_summary, tab_actions, tab_sentiment, tab_speakers, tab_japan = tabs[:5]
-    tab_eval = tabs[5] if EVAL_AVAILABLE else None
+    tabs       = st.tabs(tab_labels)
+    t_summary  = tabs[0]
+    t_actions  = tabs[1]
+    t_sentiment= tabs[2]
+    t_speakers = tabs[3]
+    t_insights = tabs[4] if features.get("insight_tab_enabled") else None
+    t_eval     = tabs[5 if features.get("insight_tab_enabled") else 4] if EVAL_AVAILABLE else None
 
-    # ── Summary ──
-    with tab_summary:
-        bullets = results.get("summary", [])
+    # ── Summary ───────────────────────────────────────────────────────────────
+    with t_summary:
+        bullets = R.get("summary", [])
         st.markdown(
-            f"<div class='section-header'>Meeting Summary — {len(bullets)} key point{'s' if len(bullets) != 1 else ''}</div>",
-            unsafe_allow_html=True
+            f"<div class='sh'>{len(bullets)} Key Point{'s' if len(bullets)!=1 else ''}</div>",
+            unsafe_allow_html=True,
         )
-        for i, bullet in enumerate(bullets, 1):
+        for i, b in enumerate(bullets, 1):
             st.markdown(
                 f"<div class='card'>"
-                f"<span style='color:#8b5cf6; font-weight:700; margin-right:0.5rem;'>{i}.</span>"
-                f"<span style='color:#e2e8f0;'>{bullet}</span>"
+                f"<span style='font-size:0.7rem; font-weight:700; color:#E8829A; "
+                f"margin-right:0.7rem; letter-spacing:0.06em;'>{i:02d}</span>"
+                f"<span style='color:#3D2B1F; font-size:0.91rem; line-height:1.6;'>{b}</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
 
-    # ── Action Items ──
-    with tab_actions:
-        items = results.get("action_items", [])
-        verified_count = sum(1 for i in items if not i.get("hallucination_flag", False))
-        flagged_count  = sum(1 for i in items if i.get("hallucination_flag", False))
-
+    # ── Action Items ──────────────────────────────────────────────────────────
+    with t_actions:
+        items = R.get("action_items", [])
+        v = sum(1 for i in items if not i.get("hallucination_flag"))
+        f = len(items) - v
+        f_str = f" &nbsp;·&nbsp; <span style='color:#C0514A;'>⚑ {f} flagged</span>" if f else ""
         st.markdown(
-            f"<div class='section-header'>Action Items &nbsp;"
-            f"<span style='font-size:0.8rem; font-weight:400; color:#94a3b8;'>"
-            f"✅ {verified_count} verified &nbsp;·&nbsp; "
-            f"{'🚩 ' + str(flagged_count) + ' flagged' if flagged_count else '0 flagged'}"
-            f"</span></div>",
-            unsafe_allow_html=True
+            f"<div class='sh'>{len(items)} Item{'s' if len(items)!=1 else ''}"
+            f" &nbsp;·&nbsp; <span style='color:#5A7D6B; font-weight:600;'>✓ {v} verified</span>"
+            f"{f_str}</div>",
+            unsafe_allow_html=True,
         )
-
         if not items:
-            st.info("No action items extracted.")
-        else:
-            for item in items:
-                is_flagged  = item.get("hallucination_flag", False)
-                confidence  = item.get("confidence", None)
-                flag_reason = item.get("flag_reason", "")
-                border_color = "#ef4444" if is_flagged else "#8b5cf6"
-                flag_icon    = "🚩" if is_flagged else "🔲"
-                conf_str     = f" &nbsp;·&nbsp; 🎯 <strong>Confidence:</strong> {confidence:.0%}" if confidence is not None else ""
+            st.markdown("<div style='color:#C4A99E; font-size:0.85rem;'>No action items extracted.</div>", unsafe_allow_html=True)
+        for item in items:
+            flagged  = item.get("hallucination_flag", False)
+            conf     = item.get("confidence")
+            reason   = item.get("flag_reason", "")
+            cls      = "action-row flagged" if flagged else "action-row"
+            conf_str = f" &nbsp;·&nbsp; {conf:.0%} confidence" if conf is not None else ""
+            flag_str = f"<div class='action-flag'>⚠ {reason}</div>" if flagged else ""
+            st.markdown(
+                f"<div class='{cls}'>"
+                f"<div style='font-size:1rem; color:{'#C0514A' if flagged else '#E8829A'}; padding-top:0.1rem;'>{'⚑' if flagged else '◆'}</div>"
+                f"<div style='flex:1;'>"
+                f"<div class='action-task'>{item.get('task','')}</div>"
+                f"<div class='action-meta'>"
+                f"Owner: <strong>{item.get('owner','TBD')}</strong>"
+                f" &nbsp;·&nbsp; Deadline: <strong>{item.get('deadline','TBD')}</strong>"
+                f"{conf_str}</div>"
+                f"{flag_str}"
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
 
+    # ── Sentiment ─────────────────────────────────────────────────────────────
+    with t_sentiment:
+        st.markdown("<div class='sh'>Speaker Sentiment</div>", unsafe_allow_html=True)
+        for s in R.get("sentiment", []):
+            lbl   = s.get("score","neutral").lower()
+            icon  = {"positive":"🌸","neutral":"🌿","negative":"🍂"}.get(lbl,"🌿")
+            badge = f"badge-{lbl}" if lbl in ("positive","neutral","negative") else "badge-neutral"
+            st.markdown(
+                f"<div class='sentiment-row'>"
+                f"<div class='sentiment-name'>{icon} {s.get('speaker','')}</div>"
+                f"<span class='badge {badge}'>{lbl.upper()}</span>"
+                f"<div class='sentiment-label'>{s.get('label','')}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+    # ── Speakers ──────────────────────────────────────────────────────────────
+    with t_speakers:
+        st.markdown("<div class='sh'>Talk Time Distribution</div>", unsafe_allow_html=True)
+        colors = ["#E8829A","#F4A07A","#C9924A","#5A7D6B","#A8897C","#7A5C50"]
+        for i, spk in enumerate(R.get("speakers",[])):
+            name  = spk.get("name", f"Speaker {i+1}")
+            pct   = spk.get("talk_time_pct", 0)
+            tone  = spk.get("tone","—")
+            color = colors[i % len(colors)]
+            c_l, c_r = st.columns([0.35, 0.65])
+            with c_l:
                 st.markdown(
-                    f"<div class='action-item' style='border-left-color:{border_color};'>"
-                    f"<div class='task-text'>{flag_icon} {item.get('task','')}</div>"
-                    f"<div class='meta-text'>"
-                    f"👤 <strong>Owner:</strong> {item.get('owner','TBD')} &nbsp;·&nbsp; "
-                    f"📅 <strong>Deadline:</strong> {item.get('deadline','TBD')}{conf_str}"
-                    f"</div>"
-                    f"{'<div style="color:#f87171;font-size:0.78rem;margin-top:0.3rem;">⚠️ ' + flag_reason + '</div>' if is_flagged else ''}"
+                    f"<div class='card' style='padding:0.75rem 1rem;'>"
+                    f"<div style='font-weight:500; font-size:0.89rem; color:#3D2B1F;'>🎤 {name}</div>"
+                    f"<div style='font-size:0.74rem; color:#C4A99E; margin-top:0.2rem;'>{tone}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            with c_r:
+                st.markdown(
+                    f"<div style='padding-top:0.9rem;'>"
+                    f"<div style='font-size:0.77rem; color:#A8897C; margin-bottom:0.3rem;'>{pct}% talk time</div>"
+                    f"<div class='spk-bar-bg'>"
+                    f"<div class='spk-bar-fill' style='width:{pct}%; background:{color};'></div>"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+    # ── Insights (Japan / Hindi / none) ───────────────────────────────────────
+    if t_insights is not None:
+        with t_insights:
+            if features.get("show_japan_insights"):
+                st.markdown("<div class='sh'>Japan Business Intelligence · 日本ビジネス分析</div>", unsafe_allow_html=True)
+
+                # Keigo
+                keigo  = ji.get("keigo_level","—")
+                k_src  = ji.get("keigo_source","llm")
+                k_color= {"high":"#C45C74","medium":"#B07D3A","low":"#A8897C"}.get(keigo,"#A8897C")
+                st.markdown(
+                    f"<div class='card'>"
+                    f"<div class='sh' style='margin-bottom:0.5rem;'>敬語レベル · Keigo Register</div>"
+                    f"<span style='font-size:1.3rem; font-weight:600; color:{k_color};'>{keigo.upper()}</span>"
+                    f"<span style='font-size:0.74rem; color:#C4A99E; margin-left:0.6rem;'>via {k_src}</span>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
 
-    # ── Sentiment ──
-    with tab_sentiment:
-        st.markdown("<div class='section-header'>Speaker Sentiment</div>", unsafe_allow_html=True)
-        for s in results.get("sentiment", []):
-            label = s.get("score", "neutral").lower()
-            icon  = {"positive": "😊", "neutral": "😐", "negative": "😟"}.get(label, "😐")
-            badge_cls = f"badge-{label}" if label in ("positive","neutral","negative") else "badge-neutral"
-            col_spk, col_badge, col_lbl = st.columns([0.35, 0.25, 0.40])
-            with col_spk:
-                st.markdown(f"<div class='card' style='padding:0.8rem 1rem; margin-bottom:0.4rem;'><span style='color:#e2e8f0; font-weight:600;'>{icon} {s.get('speaker','')}</span></div>", unsafe_allow_html=True)
-            with col_badge:
-                st.markdown(f"<div style='padding-top:0.55rem;'><span class='badge {badge_cls}'>{label.upper()}</span></div>", unsafe_allow_html=True)
-            with col_lbl:
-                st.markdown(f"<div style='padding-top:0.6rem; color:#94a3b8; font-size:0.85rem;'>{s.get('label','')}</div>", unsafe_allow_html=True)
-
-    # ── Speakers ──
-    with tab_speakers:
-        st.markdown("<div class='section-header'>Speaker Breakdown</div>", unsafe_allow_html=True)
-        colors = ["#8b5cf6","#3b82f6","#10b981","#f59e0b","#ef4444"]
-        for i, spk in enumerate(results.get("speakers", [])):
-            name  = spk.get("name", f"Speaker {i+1}")
-            pct   = spk.get("talk_time_pct", 0)
-            tone  = spk.get("tone", "—")
-            color = colors[i % len(colors)]
-            col_info, col_bar = st.columns([0.4, 0.6])
-            with col_info:
-                st.markdown(f"<div class='card'><div style='color:#e2e8f0; font-weight:600;'>🎤 {name}</div><div style='color:#94a3b8; font-size:0.82rem; margin-top:0.3rem;'>Tone: {tone}</div></div>", unsafe_allow_html=True)
-            with col_bar:
-                st.markdown(f"<div class='speaker-bar-wrap' style='padding-top:0.7rem;'><div class='speaker-bar-label'>{pct}% talk time</div><div class='speaker-bar-bg'><div class='speaker-bar-fill' style='width:{pct}%; background:linear-gradient(90deg,{color},{color}aa);'></div></div></div>", unsafe_allow_html=True)
-
-    # ── Japan Insights ──
-    with tab_japan:
-        st.markdown("<div class='section-header'>🇯🇵 Japan Business Intelligence</div>", unsafe_allow_html=True)
-        japan = results.get("japan_insights", {})
-
-        st.markdown("<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>📜 Keigo Register (敬語レベル)</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='card'><span style='color:#fde68a;'>🏯 </span><span style='color:#e2e8f0;'>{japan.get('keigo_level','Not detected')}</span></div>", unsafe_allow_html=True)
-
-        signals = japan.get("nemawashi_signals", [])
-        st.markdown(f"<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>🌱 Nemawashi Signals (根回し) — {len(signals)} detected</div>", unsafe_allow_html=True)
-        if signals:
-            for sig in signals:
-                st.markdown(f"<div class='highlight-box'>🔸 {sig}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='card'><span style='color:#94a3b8;'>No nemawashi signals detected.</span></div>", unsafe_allow_html=True)
-
-        cs = japan.get("code_switch_count", 0)
-        st.markdown("<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>🔀 Code-Switching (JA↔EN)</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='card'><span style='font-size:1.8rem; font-weight:700; color:#60a5fa;'>{cs}</span><span style='color:#94a3b8; font-size:0.9rem; margin-left:0.6rem;'>language switches detected mid-conversation</span></div>", unsafe_allow_html=True)
-        if cs > 5:
-            st.warning(f"⚡ High code-switching frequency ({cs} times) — indicates a globally-oriented team or international client.")
-
-        # Soft rejection signals
-        soft = results.get("soft_rejections", {})
-        if soft and soft.get("total_signals", 0) > 0:
-            risk = soft.get("risk_level", "NONE")
-            risk_colors = {
-                "HIGH":    "#ef4444",
-                "MEDIUM":  "#f59e0b",
-                "LOW":     "#60a5fa",
-                "MINIMAL": "#94a3b8",
-                "NONE":    "#4ade80"
-            }
-            risk_color = risk_colors.get(risk, "#94a3b8")
-
-            st.markdown(
-                f"<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>"
-                f"🎭 Soft Rejection Analysis (間接的拒否)</div>",
-                unsafe_allow_html=True
-            )
-            st.markdown(
-                f"<div class='card'>"
-                f"<span style='color:{risk_color}; font-weight:700; font-size:1rem;'>● {risk} RISK</span>"
-                f"<div style='color:#94a3b8; font-size:0.85rem; margin-top:0.4rem;'>{soft.get('risk_summary','')}</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-            for signal in soft.get("high_signals", []):
+                # Nemawashi signals
+                sigs = ji.get("nemawashi_signals",[])
                 st.markdown(
-                    f"<div style='background:rgba(239,68,68,0.10); border-left:3px solid #ef4444; "
-                    f"border-radius:0 8px 8px 0; padding:0.75rem 1rem; margin-bottom:0.5rem;'>"
-                    f"<div style='color:#f87171; font-weight:600;'>🚨 {signal['phrase']} — {signal['reading']}</div>"
-                    f"<div style='color:#94a3b8; font-size:0.82rem; margin-top:0.3rem;'>Speaker: {signal['speaker']} · Confidence: {signal['confidence']:.0%}</div>"
-                    f"<div style='color:#cbd5e1; font-size:0.82rem; margin-top:0.3rem;'>{signal['explanation']}</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
+                    f"<div style='font-size:0.79rem; font-weight:500; color:#7A5C50; margin:0.6rem 0 0.5rem;'>"
+                    f"根回し Signals &nbsp;·&nbsp; {len(sigs)} detected</div>",
+                    unsafe_allow_html=True,
+                )
+                if sigs:
+                    for sig in sigs:
+                        st.markdown(
+                            f"<div style='padding:0.55rem 0.9rem; background:#FDE8ED; "
+                            f"border-left:2px solid #E8829A; margin-bottom:0.4rem; "
+                            f"border-radius:0 6px 6px 0; font-family:\"Noto Sans JP\",sans-serif; "
+                            f"font-size:0.87rem; color:#3D2B1F;'>◆ {sig}</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.markdown("<div style='color:#C4A99E; font-size:0.83rem;'>No nemawashi signals detected.</div>", unsafe_allow_html=True)
+
+                # Code switching
+                if features.get("show_code_switch"):
+                    cs = ji.get("code_switch_count", 0)
+                    st.markdown(
+                        f"<div class='card' style='margin-top:0.6rem;'>"
+                        f"<div class='sh' style='margin-bottom:0.4rem;'>JA↔EN Code-Switching</div>"
+                        f"<span style='font-size:1.6rem; font-weight:600; color:#E8829A;'>{cs}</span>"
+                        f"<span style='color:#C4A99E; font-size:0.81rem; margin-left:0.5rem;'>switches detected</span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if cs > 5:
+                        st.info(f"High code-switching ({cs}×) — globally-oriented team or international client context.")
+
+                # Soft rejection
+                soft = R.get("soft_rejections",{})
+                if soft and soft.get("total_signals",0) > 0:
+                    risk = soft.get("risk_level","NONE")
+                    st.markdown(
+                        "<div style='font-size:0.79rem; font-weight:500; color:#7A5C50; margin:1rem 0 0.5rem;'>"
+                        "間接的拒否 · Soft Rejection Analysis</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f"<div class='card'>"
+                        f"<span class='risk-pill risk-{risk}'>{risk} RISK</span>"
+                        f"<div style='color:#A8897C; font-size:0.82rem; margin-top:0.5rem;'>"
+                        f"{soft.get('risk_summary','')}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for sig in soft.get("high_signals",[]):
+                        st.markdown(
+                            f"<div class='signal-high'>"
+                            f"<div class='signal-phrase'>🚨 {sig['phrase']}</div>"
+                            f"<div class='signal-reading'>{sig['reading']} &nbsp;·&nbsp; Speaker: {sig['speaker']} &nbsp;·&nbsp; {sig['confidence']:.0%}</div>"
+                            f"<div class='signal-exp'>{sig['explanation']}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    for sig in soft.get("medium_signals",[]):
+                        st.markdown(
+                            f"<div class='signal-medium'>"
+                            f"<div class='signal-phrase'>⚠ {sig['phrase']}</div>"
+                            f"<div class='signal-reading'>{sig['reading']} &nbsp;·&nbsp; Speaker: {sig['speaker']} &nbsp;·&nbsp; {sig['confidence']:.0%}</div>"
+                            f"<div class='signal-exp'>{sig['explanation']}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    for sig in soft.get("low_signals",[]):
+                        st.markdown(
+                            f"<div class='signal-low'>"
+                            f"<div class='signal-phrase'>◆ {sig['phrase']}</div>"
+                            f"<div class='signal-reading'>{sig['reading']} &nbsp;·&nbsp; {sig['speaker']}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown(
+                        f"<div style='font-size:0.74rem; color:#C4A99E; margin-top:0.5rem; font-style:italic;'>"
+                        f"{soft.get('cultural_note','')}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # PII report
+                if pii_rep and pii_rep.get("total_pii_found",0) > 0:
+                    st.markdown(
+                        "<div style='font-size:0.79rem; font-weight:500; color:#7A5C50; margin:1rem 0 0.5rem;'>"
+                        "PII Masking Report</div>",
+                        unsafe_allow_html=True,
+                    )
+                    by_cat = pii_rep.get("by_category",{})
+                    if by_cat:
+                        cols = st.columns(len(by_cat))
+                        for idx,(cat,cnt) in enumerate(by_cat.items()):
+                            with cols[idx]:
+                                st.markdown(
+                                    f"<div class='metric-card'>"
+                                    f"<div class='metric-value' style='font-size:1.5rem;'>{cnt}</div>"
+                                    f"<div class='metric-label'>{cat}</div>"
+                                    f"</div>",
+                                    unsafe_allow_html=True,
+                                )
+
+            elif features.get("show_hindi_insights"):
+                st.markdown("<div class='sh'>Hindi Business Intelligence · हिन्दी व्यापार विश्लेषण</div>", unsafe_allow_html=True)
+                if LANGUAGE_INTEL_AVAILABLE:
+                    hi = detect_hindi_patterns(st.session_state.current_transcript)
+                    risk = hi.get("risk_level","NONE")
+                    st.markdown(
+                        f"<div class='card'>"
+                        f"<span class='risk-pill risk-{risk}'>{risk} RISK</span>"
+                        f"<div style='color:#A8897C; font-size:0.83rem; margin-top:0.5rem;'>"
+                        f"{hi.get('risk_summary','')}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for sig in hi.get("detected",[]):
+                        sev_cls = {"HIGH":"signal-high","MEDIUM":"signal-medium","LOW":"signal-low"}.get(sig["severity"],"signal-low")
+                        st.markdown(
+                            f"<div class='{sev_cls}'>"
+                            f"<div class='signal-phrase'>{sig['phrase']}</div>"
+                            f"<div class='signal-reading'>{sig['reading']} &nbsp;·&nbsp; {sig['confidence']:.0%} confidence</div>"
+                            f"<div class='signal-exp'>{sig['explanation']}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown(
+                        f"<div style='font-size:0.74rem; color:#C4A99E; margin-top:0.6rem; font-style:italic;'>"
+                        f"{hi.get('cultural_note','')}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            else:
+                st.markdown(
+                    "<div style='color:#C4A99E; font-size:0.85rem; padding:1.2rem 0; line-height:1.7;'>"
+                    "Cultural intelligence features apply to Japanese and Hindi transcripts.<br>"
+                    "Switch to a Japanese or Hindi transcript to see keigo, nemawashi,"
+                    " and indirect signal analysis."
+                    "</div>",
+                    unsafe_allow_html=True,
                 )
 
-            for signal in soft.get("medium_signals", []):
-                st.markdown(
-                    f"<div style='background:rgba(245,158,11,0.10); border-left:3px solid #f59e0b; "
-                    f"border-radius:0 8px 8px 0; padding:0.75rem 1rem; margin-bottom:0.5rem;'>"
-                    f"<div style='color:#fde68a; font-weight:600;'>⚠️ {signal['phrase']} — {signal['reading']}</div>"
-                    f"<div style='color:#94a3b8; font-size:0.82rem; margin-top:0.3rem;'>Speaker: {signal['speaker']} · Confidence: {signal['confidence']:.0%}</div>"
-                    f"<div style='color:#cbd5e1; font-size:0.82rem; margin-top:0.3rem;'>{signal['explanation']}</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
-            for signal in soft.get("low_signals", []):
-                st.markdown(
-                    f"<div class='highlight-box'>"
-                    f"💡 <strong>{signal['phrase']}</strong> — {signal['reading']} "
-                    f"<span style='color:#94a3b8; font-size:0.8rem;'>(Speaker: {signal['speaker']})</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
+    # ── Evaluation ────────────────────────────────────────────────────────────
+    if t_eval is not None:
+        with t_eval:
+            st.markdown("<div class='sh'>Accuracy Evaluation · Ground Truth Comparison</div>", unsafe_allow_html=True)
             st.markdown(
-                f"<div style='color:#64748b; font-size:0.78rem; font-style:italic; margin-top:0.5rem;'>"
-                f"💬 {soft.get('cultural_note','')}</div>",
-                unsafe_allow_html=True
+                "<div style='font-size:0.82rem; color:#A8897C; margin-bottom:1rem;'>"
+                "Select a test case with known ground truth to measure analysis accuracy.</div>",
+                unsafe_allow_html=True,
             )
-
-        # PII detail
-        if pii_report and pii_report.get("total_pii_found", 0) > 0:
-            st.markdown("<div style='color:#a78bfa; font-weight:600; font-size:0.9rem; margin:0.8rem 0 0.4rem;'>🔒 PII Masking Report</div>", unsafe_allow_html=True)
-            by_cat = pii_report.get("by_category", {})
-            cols = st.columns(len(by_cat) if by_cat else 1)
-            for idx, (cat, count) in enumerate(by_cat.items()):
-                with cols[idx]:
-                    st.markdown(f"<div class='metric-card'><div class='metric-value' style='font-size:1.5rem;'>{count}</div><div class='metric-label'>{cat}</div></div>", unsafe_allow_html=True)
-
-    # ── Evaluation ──
-    if tab_eval is not None:
-        with tab_eval:
-            st.markdown("<div class='section-header'>📊 AI Evaluation — How accurate is the analysis?</div>", unsafe_allow_html=True)
-            st.markdown("<div style='color:#94a3b8; font-size:0.87rem; margin-bottom:1rem;'>Select a test case with known ground truth to measure accuracy.</div>", unsafe_allow_html=True)
-
             tc_names = [tc["name"] for tc in TEST_CASES]
             selected = st.selectbox("Test case", tc_names)
-            tc = next(t for t in TEST_CASES if t["name"] == selected)
+            tc       = next(t for t in TEST_CASES if t["name"] == selected)
 
-            if st.button("▶️ Run evaluation on this test case"):
-                with st.spinner("Running evaluation…"):
-                    pred = analyze_transcript(tc["transcript"], tc["language"])
+            if st.button("Run evaluation →"):
+                with st.spinner("Evaluating…"):
+                    pred   = analyze_transcript(tc["transcript"], tc["language"])
                     report = evaluate(pred, tc["ground_truth"], tc["transcript"])
 
                 overall = report.get("overall_score", 0)
-                grade   = report.get("overall_grade", "—")
-
-                col_score, col_rouge, col_f1, col_sent = st.columns(4)
-                with col_score:
-                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{overall}%</div><div class='metric-label'>Overall score</div></div>", unsafe_allow_html=True)
-                with col_rouge:
-                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{report['summary']['avg_rouge1_f1']}</div><div class='metric-label'>ROUGE-1 F1</div></div>", unsafe_allow_html=True)
-                with col_f1:
-                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{report['action_items']['f1']}</div><div class='metric-label'>Action F1</div></div>", unsafe_allow_html=True)
-                with col_sent:
-                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{report['sentiment']['accuracy']}</div><div class='metric-label'>Sentiment acc.</div></div>", unsafe_allow_html=True)
+                c1,c2,c3,c4 = st.columns(4)
+                with c1: st.markdown(f"<div class='metric-card'><div class='metric-value'>{overall}%</div><div class='metric-label'>Overall</div></div>", unsafe_allow_html=True)
+                with c2: st.markdown(f"<div class='metric-card'><div class='metric-value'>{report.get('summary',{}).get('avg_rouge1_f1','—')}</div><div class='metric-label'>ROUGE-1</div></div>", unsafe_allow_html=True)
+                with c3: st.markdown(f"<div class='metric-card'><div class='metric-value'>{report.get('action_items',{}).get('f1','—')}</div><div class='metric-label'>Action F1</div></div>", unsafe_allow_html=True)
+                with c4: st.markdown(f"<div class='metric-card'><div class='metric-value'>{report.get('sentiment',{}).get('accuracy','—')}</div><div class='metric-label'>Sentiment</div></div>", unsafe_allow_html=True)
 
                 if "japan_insights" in report:
-                    ji = report["japan_insights"]
-                    st.markdown("<div class='section-header' style='margin-top:1rem;'>Japan Intelligence Validation</div>", unsafe_allow_html=True)
-                    col_k, col_n, col_cs = st.columns(3)
-                    with col_k:
-                        kg = ji["keigo"]["grade"]
-                        color = "#4ade80" if kg == "PASS" else "#f87171"
-                        st.markdown(f"<div class='card'><div style='color:{color}; font-weight:700;'>{kg}</div><div style='color:#94a3b8; font-size:0.82rem;'>Keigo detection</div></div>", unsafe_allow_html=True)
-                    with col_n:
-                        st.markdown(f"<div class='card'><div style='color:#a78bfa; font-weight:700;'>{ji['nemawashi']['precision']}</div><div style='color:#94a3b8; font-size:0.82rem;'>Nemawashi precision</div></div>", unsafe_allow_html=True)
-                    with col_cs:
-                        csg = ji["code_switching"]["grade"]
-                        color = "#4ade80" if csg == "PASS" else "#f87171"
-                        st.markdown(f"<div class='card'><div style='color:{color}; font-weight:700;'>{csg}</div><div style='color:#94a3b8; font-size:0.82rem;'>Code-switch count</div></div>", unsafe_allow_html=True)
+                    ji_r = report["japan_insights"]
+                    st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='sh'>Japan Intelligence Validation</div>", unsafe_allow_html=True)
+                    ck,cn,cc = st.columns(3)
+                    with ck:
+                        kg = ji_r["keigo"]["grade"]
+                        kc = "#5A7D6B" if kg=="PASS" else "#C0514A"
+                        st.markdown(f"<div class='metric-card'><div class='metric-value' style='color:{kc}; font-size:1.3rem;'>{kg}</div><div class='metric-label'>Keigo</div></div>", unsafe_allow_html=True)
+                    with cn:
+                        st.markdown(f"<div class='metric-card'><div class='metric-value'>{ji_r['nemawashi']['precision']}</div><div class='metric-label'>Nemawashi</div></div>", unsafe_allow_html=True)
+                    with cc:
+                        csg = ji_r["code_switching"]["grade"]
+                        cc2 = "#5A7D6B" if csg=="PASS" else "#C0514A"
+                        st.markdown(f"<div class='metric-card'><div class='metric-value' style='color:{cc2}; font-size:1.3rem;'>{csg}</div><div class='metric-label'>Code-switch</div></div>", unsafe_allow_html=True)
 
-                with st.expander("Full evaluation report (JSON)"):
+                with st.expander("Full report (JSON)"):
                     st.json(report)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Footer
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style='text-align:center; padding:2rem 0 1rem; color:#475569; font-size:0.78rem;'>
-    TranscriptAI · Powered by Streamlit · Japanese Business Intelligence Platform<br>
-    <span style='color:#334155;'>Swap in your preferred LLM in <code>analyzer.py</code> · Supports Claude, GPT-4, Gemini</span>
+<div style='text-align:center; padding:2.5rem 0 1.5rem;
+            color:#C4A99E; font-size:0.73rem; letter-spacing:0.05em;'>
+  🌸 &nbsp; TranscriptAI &nbsp;·&nbsp; Japanese Business Intelligence
+  &nbsp;·&nbsp; APPI Compliant &nbsp; 🌸
+  <br><br>
+  <span style='color:#EDE0D8;'>Groq · Ollama · Claude · GPT-4 · Any OpenAI-compatible provider</span>
 </div>
 """, unsafe_allow_html=True)
