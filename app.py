@@ -68,257 +68,432 @@ st.set_page_config(
 # ── CSS — warm sakura/peach palette ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
 
-/* ── Palette ─────────────────────────────────────────────────────────────── */
 :root {
-    /* Backgrounds */
-    --washi:        #FDF8F5;   /* warm off-white, like washi paper */
-    --surface:      #FFFCFA;   /* card surface */
-    --surface-warm: #FEF3ED;   /* slightly more peach, for hover/active */
-
-    /* Borders */
-    --rule:         #EDE0D8;   /* warm beige rule */
-    --rule-soft:    #F3E8E1;   /* very soft rule */
-
-    /* Text */
-    --ink:          #3D2B1F;   /* warm dark brown, not harsh black */
-    --ink-mid:      #7A5C50;   /* medium warm brown */
-    --ink-soft:     #A8897C;   /* muted rose-brown */
-    --ink-faint:    #C4A99E;   /* very light, for labels */
-
-    /* Accent — sakura */
-    --sakura:       #E8829A;   /* sakura pink main */
-    --sakura-deep:  #C45C74;   /* deeper sakura for hover */
-    --sakura-light: #F7C5D0;   /* light sakura for backgrounds */
-    --sakura-pale:  #FDE8ED;   /* very pale sakura */
-
-    /* Peach */
-    --peach:        #F4A07A;   /* warm peach accent */
-    --peach-light:  #FDE8D8;   /* pale peach */
-    --peach-pale:   #FEF3ED;   /* very pale peach */
-
-    /* Gold — for Japanese elements */
-    --gold:         #C9924A;   /* warm gold */
-    --gold-light:   #F2DFC0;   /* pale gold */
-
-    /* Status */
-    --green:        #5A7D6B;   /* muted sage green */
-    --green-pale:   #E0EDE7;
-    --red:          #C0514A;   /* muted rose red */
-    --red-pale:     #FAE8E7;
-    --amber:        #B07D3A;
-    --amber-pale:   #FAF0DC;
-
-    --radius:    6px;
-    --radius-lg: 10px;
+    --washi:        #FAF6F2;
+    --surface:      #FFFEFB;
+    --surface-warm: #FEF3EC;
+    --border:       #EFE2D8;
+    --border-mid:   #E5D0C4;
+    --ink:          #3C2416;
+    --ink-mid:      #7A5040;
+    --ink-soft:     #A87868;
+    --ink-faint:    #C8A898;
+    --sakura:       #D96080;
+    --sakura-deep:  #BE4060;
+    --sakura-bg:    #FDEEF2;
+    --sakura-pale:  #FEF6F8;
+    --sakura-light: #F2B0C0;
+    --peach:        #E88060;
+    --peach-bg:     #FDF0EA;
+    --gold:         #B87830;
+    --gold-light:   #F5E0C0;
+    --green:        #486858;
+    --green-bg:     #EDF3EF;
+    --red:          #B04040;
+    --red-bg:       #FAF0F0;
+    --amber:        #986820;
+    --amber-bg:     #FAF0E0;
 }
 
-/* ── Base ─────────────────────────────────────────────────────────────────── */
+/* ── Base reset ─────────────────────────────────────────────── */
 html, body, [class*="css"] {
-    font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
-    color: var(--ink);
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+    color: var(--ink) !important;
     -webkit-font-smoothing: antialiased;
 }
-.stApp { background: var(--washi); }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ── App background ─────────────────────────────────────────── */
+.stApp {
+    background-color: var(--washi) !important;
+    background-image:
+        radial-gradient(circle at 92% 8%, rgba(217,96,128,0.06) 0%, transparent 40%),
+        radial-gradient(circle at 8% 92%, rgba(232,128,96,0.05) 0%, transparent 40%) !important;
+}
+
+/* ── Hide the deploy toolbar (black bar at top) ─────────────── */
+[data-testid="stToolbar"],
+[data-testid="stHeader"],
+[data-testid="stDecoration"],
+header[data-testid="stHeader"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background: var(--surface);
-    border-right: 1px solid var(--rule);
+    background-color: #FDF8F5 !important;
+    border-right: 1px solid var(--border) !important;
+    background-image: radial-gradient(circle at 50% 0%, rgba(217,96,128,0.05) 0%, transparent 60%) !important;
 }
-[data-testid="stSidebar"] .stMarkdown p { font-size: 0.82rem; color: var(--ink-mid); }
+[data-testid="stSidebar"] * { color: var(--ink) !important; }
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label { color: var(--ink-mid) !important; }
 
-/* ── Cards ───────────────────────────────────────────────────────────────── */
-.card {
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
-    padding: 1.2rem 1.4rem;
-    margin-bottom: 0.8rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.card:hover {
-    border-color: var(--sakura-light);
-    box-shadow: 0 3px 14px rgba(232,130,154,0.10);
-}
+/* ── Kill ALL dark backgrounds injected by Streamlit ───────── */
+.block-container { background: transparent !important; padding-top: 1rem !important; }
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"],
+[data-testid="column"],
+section.main > div,
+.main > div { background: transparent !important; }
 
-/* ── Metric cards ────────────────────────────────────────────────────────── */
-.metric-card {
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-top: 3px solid var(--sakura);
-    border-radius: var(--radius);
-    padding: 1.1rem 0.8rem;
-    text-align: center;
+/* ── File uploader — the biggest offender ──────────────────── */
+[data-testid="stFileUploader"],
+[data-testid="stFileUploader"] > div,
+[data-testid="stFileUploader"] section,
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploadDropzone"] {
+    background-color: var(--surface) !important;
+    background: var(--surface) !important;
+    border: 1.5px dashed var(--border-mid) !important;
+    border-radius: 12px !important;
 }
-.metric-value {
-    font-size: 1.9rem; font-weight: 600;
-    color: var(--sakura-deep); line-height: 1.1;
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploadDropzone"] {
+    background-color: var(--sakura-pale) !important;
+    background: var(--sakura-pale) !important;
 }
-.metric-label {
-    font-size: 0.6rem; color: var(--ink-faint);
-    text-transform: uppercase; letter-spacing: 0.14em; margin-top: 0.4rem;
+[data-testid="stFileUploader"] *,
+[data-testid="stFileUploaderDropzone"] *,
+[data-testid="stFileUploadDropzone"] * {
+    color: var(--ink-mid) !important;
+    background: transparent !important;
 }
-
-/* ── Section headers ─────────────────────────────────────────────────────── */
-.sh {
-    font-size: 0.68rem; font-weight: 600;
-    color: var(--ink-soft); letter-spacing: 0.14em;
-    text-transform: uppercase; margin-bottom: 0.9rem;
-    padding-bottom: 0.45rem; border-bottom: 1px solid var(--rule);
+[data-testid="stFileUploaderDropzone"] svg,
+[data-testid="stFileUploadDropzone"] svg {
+    fill: var(--sakura-light) !important;
+    color: var(--sakura-light) !important;
 }
-
-/* ── Action items ────────────────────────────────────────────────────────── */
-.action-row {
-    display: flex; align-items: flex-start; gap: 0.85rem;
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-left: 4px solid var(--sakura);
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    padding: 0.95rem 1.2rem; margin-bottom: 0.65rem;
-    transition: border-color 0.15s;
+/* Browse files button inside uploader */
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploadDropzone"] button,
+[data-testid="stFileUploader"] button {
+    background-color: var(--sakura-bg) !important;
+    background: var(--sakura-bg) !important;
+    color: var(--sakura-deep) !important;
+    border: 1px solid var(--sakura-light) !important;
+    border-radius: 6px !important;
+    padding: 0.3rem 1rem !important;
+    font-weight: 500 !important;
 }
-.action-row:hover { border-color: var(--sakura-light); border-left-color: var(--sakura-deep); }
-.action-row.flagged { border-left-color: var(--red); background: var(--red-pale); }
-.action-task { font-weight: 500; color: var(--ink); font-size: 0.91rem; }
-.action-meta { font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.3rem; }
-.action-flag { font-size: 0.74rem; color: var(--red); margin-top: 0.25rem; }
-
-/* ── Sentiment rows ──────────────────────────────────────────────────────── */
-.sentiment-row {
-    display: flex; align-items: center; gap: 1rem;
-    background: var(--surface); border: 1px solid var(--rule);
-    border-radius: var(--radius-lg); padding: 0.85rem 1.1rem;
-    margin-bottom: 0.55rem;
-    transition: background 0.15s;
-}
-.sentiment-row:hover { background: var(--peach-pale); }
-.sentiment-name  { font-weight: 500; font-size: 0.89rem; color: var(--ink); min-width: 120px; }
-.sentiment-label { font-size: 0.78rem; color: var(--ink-soft); flex: 1; }
-
-/* ── Badges ──────────────────────────────────────────────────────────────── */
-.badge {
-    display: inline-block; padding: 0.2rem 0.7rem;
-    border-radius: 999px; font-size: 0.7rem; font-weight: 600;
-    letter-spacing: 0.05em; text-transform: uppercase;
-}
-.badge-positive { background: var(--green-pale);  color: var(--green); }
-.badge-neutral  { background: var(--peach-pale);  color: var(--ink-mid); }
-.badge-negative { background: var(--red-pale);    color: var(--red); }
-
-/* ── Cultural signals ────────────────────────────────────────────────────── */
-.signal-high {
-    background: var(--red-pale); border-left: 3px solid var(--red);
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
-}
-.signal-medium {
-    background: var(--amber-pale); border-left: 3px solid var(--amber);
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
-}
-.signal-low {
-    background: var(--sakura-pale); border-left: 3px solid var(--sakura-light);
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
-}
-.signal-phrase  { font-weight: 600; font-size: 0.9rem; font-family: 'Noto Sans JP', sans-serif; color: var(--ink); }
-.signal-reading { font-size: 0.79rem; color: var(--ink-mid); margin-top: 0.15rem; }
-.signal-exp     { font-size: 0.77rem; color: var(--ink-soft); margin-top: 0.4rem; line-height: 1.5; }
-
-/* ── Speaker bars ────────────────────────────────────────────────────────── */
-.spk-bar-bg   { background: var(--rule); border-radius: 999px; height: 7px; overflow: hidden; margin-top: 0.4rem; }
-.spk-bar-fill { height: 100%; border-radius: 999px; }
-
-/* ── PII pill ────────────────────────────────────────────────────────────── */
-.pii-pill {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    background: var(--green-pale); border: 1px solid #A8C9B5;
-    border-radius: 999px; padding: 0.3rem 0.9rem;
-    font-size: 0.75rem; color: var(--green); font-weight: 500; margin-bottom: 1rem;
+[data-testid="stFileUploader"] span,
+[data-testid="stFileUploader"] small {
+    color: var(--ink-soft) !important;
 }
 
-/* ── Risk pill ───────────────────────────────────────────────────────────── */
-.risk-pill {
-    display: inline-block; padding: 0.3rem 0.9rem;
-    border-radius: 999px; font-size: 0.73rem; font-weight: 700;
-    letter-spacing: 0.06em; text-transform: uppercase;
+/* ── Textarea ────────────────────────────────────────────────── */
+textarea,
+.stTextArea textarea,
+div[data-baseweb="textarea"],
+div[data-baseweb="textarea"] textarea {
+    background-color: var(--surface) !important;
+    background: var(--surface) !important;
+    border: 1.5px solid var(--border-mid) !important;
+    border-radius: 10px !important;
+    color: var(--ink) !important;
+    font-family: 'Noto Sans JP', 'DM Sans', sans-serif !important;
+    font-size: 0.85rem !important;
+    line-height: 1.7 !important;
+    caret-color: var(--sakura) !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
 }
-.risk-HIGH    { background: var(--red-pale);    color: var(--red); }
-.risk-MEDIUM  { background: var(--amber-pale);  color: var(--amber); }
-.risk-LOW     { background: var(--sakura-pale); color: var(--sakura-deep); }
-.risk-MINIMAL { background: var(--peach-pale);  color: var(--ink-soft); }
-.risk-NONE    { background: var(--green-pale);  color: var(--green); }
+textarea:focus,
+div[data-baseweb="textarea"]:focus-within,
+div[data-baseweb="textarea"]:focus-within textarea {
+    border-color: var(--sakura-light) !important;
+    box-shadow: 0 0 0 3px rgba(217,96,128,0.10) !important;
+    outline: none !important;
+}
 
-/* ── Tabs ────────────────────────────────────────────────────────────────── */
+/* ── Selectbox ───────────────────────────────────────────────── */
+div[data-baseweb="select"] > div,
+div[data-baseweb="select"] input {
+    background-color: var(--surface) !important;
+    border-color: var(--border-mid) !important;
+    color: var(--ink) !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSelectbox"] label { color: var(--ink-soft) !important; }
+li[role="option"] {
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+}
+li[role="option"]:hover { background: var(--sakura-pale) !important; }
+
+/* ── Toggle ──────────────────────────────────────────────────── */
+[data-testid="stToggle"] input:checked + div {
+    background-color: var(--sakura) !important;
+}
+
+/* ── Buttons — refined, not bubbly ──────────────────────────── */
+.stButton > button {
+    background-color: var(--sakura) !important;
+    color: #FFFDFB !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.86rem !important;
+    padding: 0.5rem 1.3rem !important;
+    letter-spacing: 0.01em !important;
+    transition: background 0.15s ease, box-shadow 0.15s ease !important;
+    box-shadow: 0 1px 4px rgba(217,96,128,0.25) !important;
+}
+.stButton > button:hover {
+    background-color: var(--sakura-deep) !important;
+    box-shadow: 0 3px 10px rgba(217,96,128,0.30) !important;
+}
+.stButton > button:active { transform: scale(0.98) !important; }
+
+/* Download button — outlined style */
+[data-testid="stDownloadButton"] button {
+    background-color: transparent !important;
+    color: var(--sakura-deep) !important;
+    border: 1.5px solid var(--sakura-light) !important;
+    box-shadow: none !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+    background-color: var(--sakura-bg) !important;
+    box-shadow: none !important;
+}
+
+/* ── Progress bar ────────────────────────────────────────────── */
+.stProgress > div > div {
+    background-color: var(--border) !important;
+    border-radius: 999px !important;
+}
+.stProgress > div > div > div {
+    background: linear-gradient(90deg, var(--sakura), var(--peach)) !important;
+    border-radius: 999px !important;
+    transition: width 0.3s ease !important;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────── */
 [data-testid="stTabs"] [role="tablist"] {
-    border-bottom: 1px solid var(--rule); gap: 0;
-    background: transparent;
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
+    gap: 0 !important;
+    padding-bottom: 0 !important;
 }
 [data-testid="stTabs"] button {
-    color: var(--ink-soft) !important; font-weight: 400;
-    font-size: 0.84rem; padding: 0.55rem 1.1rem;
-    border-radius: 0; border-bottom: 2px solid transparent !important;
-    margin-bottom: -1px; transition: color 0.15s;
+    background: transparent !important;
+    color: var(--ink-soft) !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    font-size: 0.83rem !important;
+    font-weight: 400 !important;
+    padding: 0.55rem 1rem !important;
+    margin-bottom: -1px !important;
+    border-radius: 0 !important;
+    transition: color 0.15s !important;
 }
-[data-testid="stTabs"] button:hover { color: var(--sakura) !important; }
+[data-testid="stTabs"] button:hover {
+    color: var(--sakura) !important;
+    background: transparent !important;
+}
 [data-testid="stTabs"] button[aria-selected="true"] {
-    color: var(--sakura-deep) !important; font-weight: 600;
+    color: var(--sakura-deep) !important;
     border-bottom: 2px solid var(--sakura) !important;
+    font-weight: 600 !important;
     background: transparent !important;
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-.stButton > button {
-    background: var(--sakura); color: #FFFCFA;
-    border: none; border-radius: var(--radius);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 500; font-size: 0.87rem;
-    padding: 0.55rem 1.5rem; letter-spacing: 0.01em;
-    transition: background 0.15s ease, transform 0.1s ease;
-}
-.stButton > button:hover  { background: var(--sakura-deep); }
-.stButton > button:active { transform: scale(0.98); }
-
-/* ── Inputs ──────────────────────────────────────────────────────────────── */
-textarea {
+/* ── Expander ────────────────────────────────────────────────── */
+[data-testid="stExpander"] {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
     background: var(--surface) !important;
-    border: 1px solid var(--rule) !important;
-    color: var(--ink) !important;
-    border-radius: var(--radius-lg) !important;
-    font-family: 'Noto Sans JP', 'DM Sans', sans-serif !important;
+}
+[data-testid="stExpander"] summary {
+    color: var(--ink-mid) !important;
     font-size: 0.85rem !important;
 }
-textarea:focus { border-color: var(--sakura-light) !important; }
-[data-testid="stFileUploader"] { background: transparent !important; }
+[data-testid="stExpander"] summary:hover { color: var(--sakura) !important; }
 
-/* ── Progress ────────────────────────────────────────────────────────────── */
-.stProgress > div > div {
-    background: linear-gradient(90deg, var(--sakura), var(--peach)) !important;
-    border-radius: 999px !important;
+/* ── Spinner ─────────────────────────────────────────────────── */
+[data-testid="stSpinner"] > div { border-top-color: var(--sakura) !important; }
+
+/* ── Alerts ──────────────────────────────────────────────────── */
+.stAlert { border-radius: 8px !important; }
+div[data-testid="stAlert"][data-baseweb="notification"] {
+    background: var(--sakura-pale) !important;
+    border-left-color: var(--sakura) !important;
+    border-radius: 8px !important;
+    color: var(--ink-mid) !important;
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+/* ── Markdown text ───────────────────────────────────────────── */
+.stMarkdown p, .stMarkdown li, .stMarkdown span {
+    color: var(--ink-mid) !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--washi); }
 ::-webkit-scrollbar-thumb { background: var(--sakura-light); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sakura); }
 
-/* ── Toggle ──────────────────────────────────────────────────────────────── */
-[data-testid="stToggle"] input:checked + div { background: var(--sakura) !important; }
+/* ════════════════════════════════════════════════════════════════
+   CUSTOM COMPONENTS
+   ════════════════════════════════════════════════════════════════ */
 
-/* ── Selectbox ───────────────────────────────────────────────────────────── */
-[data-testid="stSelectbox"] > div > div {
-    border-color: var(--rule) !important;
-    background: var(--surface) !important;
-    color: var(--ink) !important;
+/* Cards */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 0.8rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    border-color: var(--sakura-light);
+    box-shadow: 0 2px 12px rgba(217,96,128,0.08);
 }
 
-/* ── Info / warning / success ────────────────────────────────────────────── */
-.stAlert { border-radius: var(--radius-lg) !important; }
+/* Metric cards */
+.metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--sakura);
+    border-radius: 6px;
+    padding: 1.1rem 0.8rem;
+    text-align: center;
+    transition: box-shadow 0.2s;
+}
+.metric-card:hover { box-shadow: 0 2px 10px rgba(217,96,128,0.10); }
+.metric-value {
+    font-size: 1.85rem; font-weight: 600;
+    color: var(--sakura-deep); line-height: 1.1;
+}
+.metric-label {
+    font-size: 0.59rem; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.13em; margin-top: 0.4rem;
+}
 
-/* ── Divider ─────────────────────────────────────────────────────────────── */
-.divider { border: none; border-top: 1px solid var(--rule); margin: 1rem 0; }
+/* Section headers */
+.sh {
+    font-size: 0.67rem; font-weight: 600;
+    color: var(--ink-soft); letter-spacing: 0.14em;
+    text-transform: uppercase; margin-bottom: 0.9rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* Action items */
+.action-row {
+    display: flex; align-items: flex-start; gap: 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--sakura);
+    border-radius: 0 10px 10px 0;
+    padding: 0.95rem 1.2rem; margin-bottom: 0.65rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.action-row:hover {
+    border-color: var(--sakura-light);
+    box-shadow: 0 2px 8px rgba(217,96,128,0.08);
+}
+.action-row.flagged {
+    border-left-color: var(--red);
+    background: var(--red-bg);
+}
+.action-task { font-weight: 500; color: var(--ink); font-size: 0.91rem; line-height: 1.5; }
+.action-meta { font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.3rem; }
+.action-flag { font-size: 0.74rem; color: var(--red); margin-top: 0.25rem; }
+
+/* Sentiment rows */
+.sentiment-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem; margin-bottom: 0.55rem;
+    transition: background 0.15s, border-color 0.15s;
+}
+.sentiment-row:hover {
+    background: var(--sakura-pale);
+    border-color: var(--sakura-light);
+}
+.sentiment-name  { font-weight: 500; font-size: 0.89rem; color: var(--ink); min-width: 130px; }
+.sentiment-label { font-size: 0.78rem; color: var(--ink-soft); flex: 1; font-style: italic; }
+
+/* Badges */
+.badge {
+    display: inline-block; padding: 0.2rem 0.75rem;
+    border-radius: 999px; font-size: 0.68rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+}
+.badge-positive { background: var(--green-bg); color: var(--green); }
+.badge-neutral  { background: var(--peach-bg); color: var(--ink-mid); }
+.badge-negative { background: var(--red-bg);   color: var(--red); }
+
+/* Cultural signal boxes */
+.signal-high {
+    background: var(--red-bg);
+    border-left: 3px solid var(--red);
+    border-radius: 0 10px 10px 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-medium {
+    background: var(--amber-bg);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 10px 10px 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-low {
+    background: var(--sakura-pale);
+    border-left: 3px solid var(--sakura-light);
+    border-radius: 0 10px 10px 0;
+    padding: 0.85rem 1.1rem; margin-bottom: 0.6rem;
+}
+.signal-phrase  {
+    font-weight: 600; font-size: 0.9rem;
+    font-family: 'Noto Sans JP', sans-serif; color: var(--ink);
+}
+.signal-reading { font-size: 0.79rem; color: var(--ink-mid); margin-top: 0.2rem; }
+.signal-exp     {
+    font-size: 0.77rem; color: var(--ink-soft);
+    margin-top: 0.4rem; line-height: 1.6;
+}
+
+/* Speaker bars */
+.spk-bar-bg   {
+    background: var(--border); border-radius: 999px;
+    height: 7px; overflow: hidden; margin-top: 0.4rem;
+}
+.spk-bar-fill { height: 100%; border-radius: 999px; }
+
+/* PII pill */
+.pii-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--green-bg); border: 1px solid #A8C8B5;
+    border-radius: 999px; padding: 0.28rem 0.9rem;
+    font-size: 0.74rem; color: var(--green); font-weight: 500; margin-bottom: 1rem;
+}
+
+/* Risk pills */
+.risk-pill {
+    display: inline-block; padding: 0.28rem 0.9rem;
+    border-radius: 999px; font-size: 0.71rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+}
+.risk-HIGH    { background: var(--red-bg);    color: var(--red);         }
+.risk-MEDIUM  { background: var(--amber-bg);  color: var(--amber);       }
+.risk-LOW     { background: var(--sakura-pale); color: var(--sakura-deep);}
+.risk-MINIMAL { background: var(--peach-bg);  color: var(--ink-soft);    }
+.risk-NONE    { background: var(--green-bg);  color: var(--green);       }
+
+/* Sakura divider - decorative */
+.sakura-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.4rem 0;
+    position: relative;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -427,24 +602,45 @@ with st.sidebar:
 # HEADER
 # ────────────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style='padding:2rem 0 1.4rem;'>
-  <div style='font-size:0.63rem; color:#C4A99E; letter-spacing:0.18em;
-              text-transform:uppercase; margin-bottom:0.7rem;'>
+<div style='padding:2rem 0 1.6rem; position:relative;'>
+
+  <!-- Decorative sakura dots -->
+  <div style='position:absolute; top:1.5rem; right:2rem; opacity:0.18;
+              font-size:2.5rem; line-height:1; user-select:none;'>🌸</div>
+  <div style='position:absolute; top:3rem; right:5rem; opacity:0.10;
+              font-size:1.4rem; line-height:1; user-select:none;'>🌸</div>
+
+  <div style='font-size:0.62rem; color:#C8A898; letter-spacing:0.2em;
+              text-transform:uppercase; margin-bottom:0.8rem; font-weight:500;'>
     Meeting Intelligence Platform
   </div>
-  <div style='display:flex; align-items:baseline; gap:0.8rem; flex-wrap:wrap;'>
-    <h1 style='font-size:2rem; font-weight:600; color:#3D2B1F;
-               margin:0; letter-spacing:-0.02em; line-height:1;'>
+
+  <div style='display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:0.7rem;'>
+    <h1 style='font-size:2.1rem; font-weight:600; color:#3C2416;
+               margin:0; letter-spacing:-0.025em; line-height:1;'>
       Transcript Analyzer
     </h1>
-    <span style='font-size:1.3rem; font-weight:300; color:#C9924A;
-                 font-family:"Noto Sans JP",sans-serif;'>
+    <span style='font-size:1.15rem; font-weight:300; color:#B87830;
+                 font-family:"Noto Sans JP",sans-serif; letter-spacing:0.03em;
+                 padding-bottom:0.1rem;'>
       議事録分析
     </span>
   </div>
-  <p style='color:#A8897C; font-size:0.86rem; margin-top:0.6rem; font-weight:300; line-height:1.6;'>
-    AI-powered &nbsp;·&nbsp; APPI compliant &nbsp;·&nbsp; Japanese business culture optimized
-  </p>
+
+  <div style='display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;'>
+    <span style='font-size:0.75rem; color:#D96080; background:#FDEEF2;
+                 padding:0.2rem 0.7rem; border-radius:999px; font-weight:500;
+                 border:1px solid #F2B0C0;'>AI-powered</span>
+    <span style='font-size:0.75rem; color:#486858; background:#EDF3EF;
+                 padding:0.2rem 0.7rem; border-radius:999px; font-weight:500;
+                 border:1px solid #A8C8B8;'>APPI Compliant</span>
+    <span style='font-size:0.75rem; color:#B87830; background:#F5E8D0;
+                 padding:0.2rem 0.7rem; border-radius:999px; font-weight:500;
+                 border:1px solid #D9C090;'>日本語対応</span>
+    <span style='font-size:0.75rem; color:#7A5040; background:#FEF3EC;
+                 padding:0.2rem 0.7rem; border-radius:999px; font-weight:500;
+                 border:1px solid #E5D0C4;'>Keigo · Nemawashi · Code-switch</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
