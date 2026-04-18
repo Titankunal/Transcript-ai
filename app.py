@@ -44,6 +44,12 @@ except ImportError:
     EVAL_AVAILABLE = False
 
 try:
+    from logger import get_trends, get_stats, get_recent_entries
+    TRENDS_AVAILABLE = True
+except ImportError:
+    TRENDS_AVAILABLE = False
+
+try:
     from language_intelligence import get_features, detect_hindi_patterns
     LANGUAGE_INTEL_AVAILABLE = True
 except ImportError:
@@ -852,14 +858,20 @@ if st.session_state.results:
         tab_labels.append(features.get("insight_tab_label", "🌐  Insights"))
     if EVAL_AVAILABLE:
         tab_labels.append("📊  Evaluation")
+    if TRENDS_AVAILABLE:
+        tab_labels.append("📈  Trends")
 
-    tabs       = st.tabs(tab_labels)
-    t_summary  = tabs[0]
-    t_actions  = tabs[1]
-    t_sentiment= tabs[2]
-    t_speakers = tabs[3]
-    t_insights = tabs[4] if features.get("insight_tab_enabled") else None
-    t_eval     = tabs[5 if features.get("insight_tab_enabled") else 4] if EVAL_AVAILABLE else None
+    tabs        = st.tabs(tab_labels)
+    t_summary   = tabs[0]
+    t_actions   = tabs[1]
+    t_sentiment = tabs[2]
+    t_speakers  = tabs[3]
+    idx         = 4
+    t_insights  = tabs[idx] if features.get("insight_tab_enabled") else None
+    if features.get("insight_tab_enabled"): idx += 1
+    t_eval      = tabs[idx] if EVAL_AVAILABLE else None
+    if EVAL_AVAILABLE: idx += 1
+    t_trends    = tabs[idx] if TRENDS_AVAILABLE else None
 
     # ── Summary ───────────────────────────────────────────────────────────────
     with t_summary:
@@ -1160,6 +1172,203 @@ if st.session_state.results:
 
                 with st.expander("Full report (JSON)"):
                     st.json(report)
+
+    # ── Trends ───────────────────────────────────────────────────────────────
+    if t_trends is not None:
+        with t_trends:
+            st.markdown("<div class='sh'>Meeting Intelligence Trends</div>", unsafe_allow_html=True)
+            trends = get_trends(last_n=50)
+
+            if trends.get("empty"):
+                st.markdown(
+                    f"<div style='color:var(--ink-faint); font-size:0.85rem; padding:1rem 0;'>"
+                    f"{trends.get('message','')}</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                total   = trends["total"]
+                f_date  = trends["first_date"]
+                l_date  = trends["last_date"]
+
+                st.markdown(
+                    f"<div style='font-size:0.8rem; color:var(--ink-soft); margin-bottom:1.2rem;'>"
+                    f"{total} analyses &nbsp;·&nbsp; {f_date} → {l_date}</div>",
+                    unsafe_allow_html=True
+                )
+
+                # Alerts — most important, shown first
+                for alert_key in ["soft_rejection_alert","hallucination_alert","duration_alert"]:
+                    alert = trends.get(alert_key)
+                    if alert:
+                        st.warning(alert)
+
+                # Summary metric cards
+                m1, m2, m3, m4 = st.columns(4)
+                with m1:
+                    sr_pct = trends["high_soft_rejection_pct"]
+                    color  = "var(--red)" if sr_pct > 30 else "var(--sakura-deep)"
+                    st.markdown(
+                        f"<div class='metric-card'>"
+                        f"<div class='metric-value' style='color:{color};'>{sr_pct}%</div>"
+                        f"<div class='metric-label'>High Risk Meetings</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with m2:
+                    hr = trends["avg_hallucination_pct"]
+                    color = "var(--red)" if hr > 25 else "var(--sakura-deep)"
+                    st.markdown(
+                        f"<div class='metric-card'>"
+                        f"<div class='metric-value' style='color:{color};'>{hr}%</div>"
+                        f"<div class='metric-label'>Avg Hallucination Rate</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with m3:
+                    st.markdown(
+                        f"<div class='metric-card'>"
+                        f"<div class='metric-value'>{trends['avg_action_items']}</div>"
+                        f"<div class='metric-label'>Avg Action Items</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with m4:
+                    dur = trends["avg_duration_sec"]
+                    color = "var(--red)" if dur > 60 else "var(--sakura-deep)"
+                    dur_str = f"{dur:.0f}s" if dur < 60 else f"{dur/60:.1f}m"
+                    st.markdown(
+                        f"<div class='metric-card'>"
+                        f"<div class='metric-value' style='color:{color};'>{dur_str}</div>"
+                        f"<div class='metric-label'>Avg Analysis Time</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown("<div style='height:1.2rem'></div>", unsafe_allow_html=True)
+
+                # Soft rejection trend — most valuable business signal
+                st.markdown("<div class='sh'>🎭 Soft Rejection Risk Trend</div>", unsafe_allow_html=True)
+                sr_trend   = trends["soft_rejection_trend"]
+                sr_scores  = trends["soft_rejection_scores"]
+                sr_labels  = ["None","Minimal","Low","Medium","High"]
+                trend_icon = {"up":"↑ Increasing","down":"↓ Decreasing","stable":"→ Stable"}.get(sr_trend,"→")
+                trend_color= {"up":"var(--red)","down":"var(--green)","stable":"var(--ink-soft)"}.get(sr_trend,"var(--ink-soft)")
+                st.markdown(
+                    f"<div style='font-size:0.8rem; color:{trend_color}; font-weight:600; margin-bottom:0.6rem;'>"
+                    f"Trend: {trend_icon}</div>",
+                    unsafe_allow_html=True
+                )
+                # Visual bar chart of soft rejection scores
+                for i, (ts, score) in enumerate(zip(trends["timestamps"][-10:], sr_scores[-10:])):
+                    bar_w   = max(score * 20, 2)
+                    bar_col = ["var(--green-bg)","var(--green-bg)","var(--amber-bg)","var(--amber-bg)","var(--red-bg)"][min(score,4)]
+                    bar_bdr = ["var(--green)","var(--green)","var(--amber)","var(--amber)","var(--red)"][min(score,4)]
+                    label   = sr_labels[min(score,4)]
+                    st.markdown(
+                        f"<div style='display:flex; align-items:center; gap:0.8rem; margin-bottom:0.3rem; font-size:0.78rem;'>"
+                        f"<span style='color:var(--ink-faint); width:80px; flex-shrink:0;'>{ts}</span>"
+                        f"<div style='height:20px; width:{bar_w}%; background:{bar_col}; "
+                        f"border-left:3px solid {bar_bdr}; border-radius:0 4px 4px 0;'></div>"
+                        f"<span style='color:var(--ink-soft);'>{label}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+
+                # Two-column distributions
+                col_l, col_r = st.columns(2)
+
+                with col_l:
+                    st.markdown("<div class='sh'>🏯 Keigo Distribution</div>", unsafe_allow_html=True)
+                    keigo_dist = trends.get("keigo_dist", {})
+                    keigo_total = sum(keigo_dist.values()) or 1
+                    keigo_colors = {
+                        "high":    ("var(--sakura-deep)", "var(--sakura-pale)"),
+                        "medium":  ("var(--amber)",       "var(--amber-bg)"),
+                        "low":     ("var(--ink-soft)",    "var(--surface-warm)"),
+                        "unknown": ("var(--ink-faint)",   "var(--surface)"),
+                    }
+                    for level, count in sorted(keigo_dist.items(), key=lambda x: -x[1]):
+                        pct  = round(count / keigo_total * 100)
+                        fg, bg = keigo_colors.get(level, ("var(--ink-soft)","var(--surface)"))
+                        st.markdown(
+                            f"<div style='display:flex; align-items:center; gap:0.7rem; margin-bottom:0.4rem;'>"
+                            f"<span style='font-size:0.78rem; color:var(--ink-mid); width:60px;'>{level.title()}</span>"
+                            f"<div style='flex:1; height:18px; background:{bg}; border-radius:999px; overflow:hidden;'>"
+                            f"<div style='height:100%; width:{pct}%; background:{fg}; border-radius:999px;'></div></div>"
+                            f"<span style='font-size:0.75rem; color:var(--ink-faint); width:36px; text-align:right;'>{count}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                with col_r:
+                    st.markdown("<div class='sh'>🌐 Language Distribution</div>", unsafe_allow_html=True)
+                    lang_dist   = trends.get("language_dist", {})
+                    lang_total  = sum(lang_dist.values()) or 1
+                    lang_colors = {
+                        "ja":    ("var(--sakura-deep)", "var(--sakura-pale)"),
+                        "mixed": ("var(--gold)",        "var(--gold-light)"),
+                        "en":    ("var(--green)",       "var(--green-bg)"),
+                        "hi":    ("var(--peach)",       "var(--peach-bg)"),
+                    }
+                    for lang, count in sorted(lang_dist.items(), key=lambda x: -x[1]):
+                        pct  = round(count / lang_total * 100)
+                        fg, bg = lang_colors.get(lang, ("var(--ink-soft)","var(--surface)"))
+                        lang_label = {"ja":"Japanese","mixed":"Mixed","en":"English","hi":"Hindi"}.get(lang, lang)
+                        st.markdown(
+                            f"<div style='display:flex; align-items:center; gap:0.7rem; margin-bottom:0.4rem;'>"
+                            f"<span style='font-size:0.78rem; color:var(--ink-mid); width:70px;'>{lang_label}</span>"
+                            f"<div style='flex:1; height:18px; background:{bg}; border-radius:999px; overflow:hidden;'>"
+                            f"<div style='height:100%; width:{pct}%; background:{fg}; border-radius:999px;'></div></div>"
+                            f"<span style='font-size:0.75rem; color:var(--ink-faint); width:36px; text-align:right;'>{count}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+
+                # Provider breakdown
+                st.markdown("<div class='sh'>⚡ Provider Usage</div>", unsafe_allow_html=True)
+                prov_dist  = trends.get("provider_dist", {})
+                prov_total = sum(prov_dist.values()) or 1
+                prov_cols  = st.columns(min(len(prov_dist), 4))
+                prov_colors= {
+                    "groq":   "var(--sakura)",
+                    "ollama": "var(--peach)",
+                    "mock":   "var(--ink-faint)",
+                }
+                for i, (prov, cnt) in enumerate(sorted(prov_dist.items(), key=lambda x: -x[1])):
+                    pct   = round(cnt / prov_total * 100)
+                    color = next((v for k,v in prov_colors.items() if k in prov), "var(--ink-soft)")
+                    with prov_cols[i % len(prov_cols)]:
+                        st.markdown(
+                            f"<div class='metric-card' style='border-top-color:{color};'>"
+                            f"<div class='metric-value' style='color:{color}; font-size:1.5rem;'>{pct}%</div>"
+                            f"<div class='metric-label'>{prov}</div>"
+                            f"<div style='font-size:0.7rem; color:var(--ink-faint); margin-top:0.2rem;'>{cnt} runs</div>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                # Last 10 action item counts — workload trend
+                st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
+                st.markdown("<div class='sh'>✅ Action Items per Meeting (last 10)</div>", unsafe_allow_html=True)
+                ai_counts = trends["action_item_counts"][-10:]
+                ts_labels = trends["timestamps"][-10:]
+                max_ai    = max(ai_counts) if ai_counts else 1
+                for ts, cnt in zip(ts_labels, ai_counts):
+                    bar_w = round(cnt / max_ai * 100) if max_ai else 0
+                    st.markdown(
+                        f"<div style='display:flex; align-items:center; gap:0.8rem; margin-bottom:0.3rem; font-size:0.78rem;'>"
+                        f"<span style='color:var(--ink-faint); width:80px; flex-shrink:0;'>{ts}</span>"
+                        f"<div style='flex:1; height:16px; background:var(--sakura-pale); border-radius:999px; overflow:hidden;'>"
+                        f"<div style='height:100%; width:{bar_w}%; background:var(--sakura); border-radius:999px;'></div></div>"
+                        f"<span style='color:var(--ink-soft); width:24px; text-align:right;'>{cnt}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
 
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("""
