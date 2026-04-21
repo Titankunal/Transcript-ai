@@ -1,19 +1,32 @@
-# analyzer.py — v6 (FINAL)
-# All critical, high, and medium issues resolved.
+# analyzer.py — v7
+# LangChain orchestration layer added.
 #
-# What changed from v5:
-#   ✅ Fallback hierarchy: Groq → Ollama → Mock (not just one provider)
-#   ✅ MeCab wired in: keigo from japanese_tokenizer, not LLM
-#   ✅ Semantic validation: TF-IDF cosine rescues false hallucination flags
-#   ✅ Dynamic threshold: adapts based on transcript language
-#   ✅ Caching layer: identical transcripts return instantly
-#   ✅ Speaker normalization: fully wired across all modules
+# Provider hierarchy via LangChain:
+#   Groq (ChatGroq)   → ~3s,  free tier, cloud
+#   Ollama (ChatOllama) → ~60s, fully local, APPI data residency
+#   Mock              → instant, demo mode
+#
+# LangChain chosen for:
+#   - Provider-agnostic interface (swap model in one line)
+#   - Built-in retry + timeout handling
+#   - StrOutputParser for clean text extraction
+#   Falls back to direct requests.post() if langchain not installed
 
 import json
 import os
 import re
 import time
 import requests
+
+# LangChain — primary orchestration layer
+try:
+    from langchain_groq import ChatGroq
+    from langchain_community.llms import Ollama as LangChainOllama
+    from langchain_core.messages import HumanMessage
+    from langchain_core.output_parsers import StrOutputParser
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 PROVIDER     = os.getenv("TRANSCRIPT_AI_PROVIDER", "auto")
@@ -195,6 +208,43 @@ def _call_ollama(prompt: str, max_tokens: int) -> str:
     return r.json().get("response", "")
 
 
+def _call_groq_langchain(prompt: str, max_tokens: int) -> str:
+    """
+    Primary LLM call via LangChain ChatGroq.
+    LangChain provides provider-agnostic interface,
+    built-in retry logic, and clean output parsing.
+    """
+    api_key = _get_groq_key()
+    if not api_key:
+        raise ValueError("NO_GROQ_KEY")
+
+    llm = ChatGroq(
+        api_key=api_key,
+        model=GROQ_MODEL,
+        temperature=0.2,
+        max_tokens=max_tokens,
+    )
+    parser  = StrOutputParser()
+    chain   = llm | parser
+    result  = chain.invoke([HumanMessage(content=prompt)])
+    return result
+
+
+def _call_ollama_langchain(prompt: str, max_tokens: int) -> str:
+    """
+    Ollama call via LangChain for fully local inference.
+    Zero data leaves the machine — APPI data residency guarantee.
+    """
+    llm = LangChainOllama(
+        base_url=OLLAMA_URL.replace("/api/generate", ""),
+        model=OLLAMA_MODEL,
+        temperature=0.2,
+        num_predict=max_tokens,
+        format="json",
+    )
+    return llm.invoke(prompt)
+
+
 def _parse(raw: str) -> dict:
     """
     C4 FIX: Robust JSON parsing — handles nested braces, multiple objects,
@@ -237,15 +287,26 @@ def _try_providers(prompt: str, max_tokens: int) -> tuple[str, str]:
 
     last_error = None
     for name, caller in providers_to_try:
-        # 2.1 FIX: Different retry strategy per provider
-        # Groq: up to MAX_RETRIES (fast, worth retrying on transient errors)
-        # Ollama: 0 retries — if it times out once, it will time out again
         retries = MAX_RETRIES if name == "groq" else 0
 
         for attempt in range(retries + 1):
             try:
-                raw = caller(prompt, max_tokens)
-                return raw, name   # SUCCESS — return immediately, never fall through
+                # Try LangChain first if available, fall back to raw requests
+                if LANGCHAIN_AVAILABLE and name == "groq":
+                    try:
+                        raw = _call_groq_langchain(prompt, max_tokens)
+                        return raw, f"{name}_langchain"
+                    except Exception:
+                        raw = caller(prompt, max_tokens)  # fallback to raw
+                elif LANGCHAIN_AVAILABLE and name == "ollama":
+                    try:
+                        raw = _call_ollama_langchain(prompt, max_tokens)
+                        return raw, f"{name}_langchain"
+                    except Exception:
+                        raw = caller(prompt, max_tokens)
+                else:
+                    raw = caller(prompt, max_tokens)
+                return raw, name   # SUCCESS
             except ValueError as e:
                 if "NO_GROQ_KEY" in str(e):
                     break  # no key — skip Groq, try next
