@@ -144,10 +144,17 @@ try:
     r = req.get("http://localhost:11434/api/tags", timeout=3)
     if r.status_code == 200:
         models = [m["name"] for m in r.json().get("models", [])]
-        has_qwen = any("qwen" in m for m in models)
-        check("Ollama running", True, f"Models: {models[:3]}")
-        check("qwen3:8b available", has_qwen,
-              "Run: ollama pull qwen3:8b" if not has_qwen else "Ready")
+        has_qwen3_8b   = any("qwen3:8b" in m for m in models)
+        has_any_qwen   = any("qwen" in m for m in models)
+        check("Ollama running", True, f"Models: {models[:4]}")
+        if has_qwen3_8b:
+            check("qwen3:8b available", True, "Ready")
+        elif has_any_qwen:
+            qwen_model = next(m for m in models if "qwen" in m)
+            check("qwen3:8b available", False,
+                  f"You have '{qwen_model}' — run: ollama pull qwen3:8b  OR  set OLLAMA_MODEL={qwen_model} in .env")
+        else:
+            check("qwen3:8b available", False, "Run: ollama pull qwen3:8b")
     else:
         check("Ollama running", False, f"Status {r.status_code}")
 except Exception as e:

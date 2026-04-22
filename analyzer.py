@@ -40,7 +40,24 @@ PROVIDER     = os.getenv("TRANSCRIPT_AI_PROVIDER", "auto")
 
 # C1 FIX: All URLs configurable via env vars — not hardcoded
 OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:8b")
+# Auto-detect available Ollama model if qwen3:8b not found
+def _get_ollama_model() -> str:
+    configured = os.getenv("OLLAMA_MODEL", "qwen3:8b")
+    if configured != "qwen3:8b":
+        return configured  # user explicitly set a model
+    try:
+        import requests as _req
+        r = _req.get(OLLAMA_URL.replace("/api/generate", "/api/tags"), timeout=2)
+        if r.status_code == 200:
+            models = [m["name"] for m in r.json().get("models", [])]
+            if models and not any("qwen3:8b" in m for m in models):
+                # Use first available model
+                return models[0]
+    except Exception:
+        pass
+    return configured
+
+OLLAMA_MODEL = _get_ollama_model()
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL   = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 MAX_RETRIES  = int(os.getenv("TRANSCRIPT_AI_MAX_RETRIES", "2"))

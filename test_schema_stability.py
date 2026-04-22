@@ -19,6 +19,21 @@ import os
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Load .env so GROQ_API_KEY is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    from pathlib import Path
+    env = Path(".env")
+    if env.exists():
+        for line in env.read_text().splitlines():
+            if line.strip() and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                k = k.strip(); v = v.strip().strip('"').strip("'")
+                if k and not os.getenv(k):
+                    os.environ[k] = v
+
 from analyzer import analyze_transcript
 
 REQUIRED_FIELDS = ["summary", "action_items", "sentiment", "speakers", "japan_insights"]
