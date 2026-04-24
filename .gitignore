@@ -67,3 +67,17 @@ models/
 
 # ── Node (if any frontend tooling added later) ────────────────────
 node_modules/
+
+# ChromaDB — binary files, not for git
+chroma_db/
+*.sqlite3
+
+# Screenshots — use URLs in README instead
+screenshots/
+
+# Generated data files
+synthetic_test_data.json
+schema_stability_report.json
+*.jsonl
+logs/
+cache/
