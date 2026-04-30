@@ -589,7 +589,7 @@ def analyze_transcript(text: str, language: str = "en") -> dict:
 
 
 def _validate_and_fill(data: dict) -> dict:
-    data.setdefault("full_summary", "")           # ← NEW
+    data.setdefault("full_summary", "")
     data.setdefault("summary", ["No summary available."])
     data.setdefault("action_items", [])
     data.setdefault("sentiment", [])
@@ -599,12 +599,25 @@ def _validate_and_fill(data: dict) -> dict:
     ji.setdefault("keigo_level", "unknown")
     ji.setdefault("nemawashi_signals", [])
     ji.setdefault("code_switch_count", 0)
+
+    # Bug 1 fix: normalize malformed talk_time keys
+    # LLM sometimes returns "talk_time, pct" or "talk_time pct" instead of "talk_time_pct"
+    for spk in data["speakers"]:
+        for bad_key in list(spk.keys()):
+            if "talk" in bad_key and "pct" in bad_key and bad_key != "talk_time_pct":
+                spk["talk_time_pct"] = spk.pop(bad_key)
+
     speakers = data["speakers"]
     if speakers:
         total = sum(s.get("talk_time_pct", 0) for s in speakers)
         if total > 0 and total != 100:
             for s in speakers:
                 s["talk_time_pct"] = round(s.get("talk_time_pct", 0) * 100 / total)
+        # If total is still 0 (all malformed), distribute equally
+        if sum(s.get("talk_time_pct", 0) for s in speakers) == 0:
+            equal = round(100 / len(speakers))
+            for s in speakers:
+                s["talk_time_pct"] = equal
     return data
 
 
