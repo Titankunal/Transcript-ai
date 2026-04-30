@@ -825,6 +825,84 @@ if STREAMING_AVAILABLE and stream_mode and final_text and not run_analysis:
 # ────────────────────────────────────────────────────────────────────────────
 # RESULTS
 # ────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────────────────
+# MEETING HEALTH SCORE
+# ────────────────────────────────────────────────────────────────────────────
+def compute_health_score(R: dict) -> dict:
+    """
+    Computes a 0-100 meeting health score from existing analysis signals.
+
+    Components:
+      Sentiment score       30 pts  — positive speakers weighted higher
+      Action item clarity   25 pts  — verified items with owners + deadlines
+      Soft rejection risk   25 pts  — NONE=25, MINIMAL=20, LOW=15, MEDIUM=8, HIGH=0
+      Hallucination rate    20 pts  — 0% = 20pts, scales down linearly
+    """
+    score = 0
+    breakdown = {}
+
+    # ── 1. Sentiment (30 pts) ─────────────────────────────────────────────────
+    sentiment = R.get("sentiment", [])
+    if sentiment:
+        weights = {"positive": 1.0, "neutral": 0.6, "negative": 0.1}
+        avg = sum(weights.get(s.get("score","neutral").lower(), 0.5)
+                  for s in sentiment) / len(sentiment)
+        s_pts = round(avg * 30)
+    else:
+        s_pts = 15  # neutral default if no sentiment
+    score += s_pts
+    breakdown["sentiment"] = s_pts
+
+    # ── 2. Action item clarity (25 pts) ──────────────────────────────────────
+    items = R.get("action_items", [])
+    if not items:
+        a_pts = 10  # meeting happened but no tasks — partial credit
+    else:
+        verified = [i for i in items if not i.get("hallucination_flag", False)]
+        with_owner    = sum(1 for i in verified
+                           if i.get("owner","TBD") not in ("TBD","Unknown",""))
+        with_deadline = sum(1 for i in verified
+                           if i.get("deadline","TBD") not in ("TBD","N/A",""))
+        clarity = (with_owner + with_deadline) / (2 * len(items))
+        a_pts = round(clarity * 25)
+    score += a_pts
+    breakdown["action_clarity"] = a_pts
+
+    # ── 3. Soft rejection risk (25 pts) ──────────────────────────────────────
+    soft = R.get("soft_rejections", {})
+    risk = soft.get("risk_level", "NONE")
+    risk_pts = {"NONE": 25, "MINIMAL": 20, "LOW": 15, "MEDIUM": 8, "HIGH": 0}
+    r_pts = risk_pts.get(risk, 25)
+    score += r_pts
+    breakdown["soft_rejection"] = r_pts
+
+    # ── 4. Hallucination rate (20 pts) ───────────────────────────────────────
+    verification = R.get("verification", {})
+    hall_rate = verification.get("overall_hallucination_risk", 0)
+    h_pts = round((1 - hall_rate) * 20)
+    score += h_pts
+    breakdown["hallucination"] = h_pts
+
+    # ── Label ─────────────────────────────────────────────────────────────────
+    if score >= 80:
+        label, color, bg, border = "Productive Meeting", "#486858", "#EDF3EF", "#A8C8B8"
+    elif score >= 60:
+        label, color, bg, border = "Mostly Aligned",    "#986820", "#FAF0E0", "#D9C090"
+    elif score >= 40:
+        label, color, bg, border = "Needs Follow-up",   "#C87030", "#FDF0EA", "#E8C090"
+    else:
+        label, color, bg, border = "High Risk",         "#B04040", "#FAF0F0", "#E8A0A0"
+
+    return {
+        "score":     min(score, 100),
+        "label":     label,
+        "color":     color,
+        "bg":        bg,
+        "border":    border,
+        "breakdown": breakdown,
+    }
+
 if st.session_state.results:
     R        = st.session_state.results
     language = st.session_state.current_language
@@ -867,6 +945,111 @@ if st.session_state.results:
         st.markdown(f"<div class='metric-card'><div class='metric-value' style='font-size:1.2rem;'>{mv}</div><div class='metric-label'>{ml}</div></div>", unsafe_allow_html=True)
 
     st.markdown("<div style='height:0.7rem'></div>", unsafe_allow_html=True)
+
+    # ── Meeting Health Score ───────────────────────────────────────────────────
+    hs = compute_health_score(R)
+    bd = hs["breakdown"]
+
+    # Bar widths for breakdown
+    sent_w  = round(bd["sentiment"]      / 30 * 100)
+    act_w   = round(bd["action_clarity"] / 25 * 100)
+    risk_w  = round(bd["soft_rejection"] / 25 * 100)
+    hall_w  = round(bd["hallucination"]  / 20 * 100)
+
+    st.markdown(
+        f"""
+        <div style='
+            background: {hs["bg"]};
+            border: 1.5px solid {hs["border"]};
+            border-radius: 14px;
+            padding: 1.4rem 1.8rem;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        '>
+            <!-- Score circle -->
+            <div style='text-align:center; min-width:90px;'>
+                <div style='
+                    font-size: 2.8rem;
+                    font-weight: 700;
+                    color: {hs["color"]};
+                    line-height: 1;
+                '>{hs["score"]}</div>
+                <div style='
+                    font-size: 0.6rem;
+                    font-weight: 700;
+                    color: {hs["color"]};
+                    letter-spacing: 0.12em;
+                    text-transform: uppercase;
+                    margin-top: 0.3rem;
+                    opacity: 0.8;
+                '>out of 100</div>
+                <div style='
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: {hs["color"]};
+                    margin-top: 0.4rem;
+                    background: white;
+                    padding: 0.15rem 0.6rem;
+                    border-radius: 999px;
+                    border: 1px solid {hs["border"]};
+                    display: inline-block;
+                '>{hs["label"]}</div>
+            </div>
+
+            <!-- Divider -->
+            <div style='width:1px; height:80px; background:{hs["border"]}; flex-shrink:0;'></div>
+
+            <!-- Breakdown bars -->
+            <div style='flex:1; min-width:200px;'>
+                <div style='font-size:0.62rem; font-weight:600; color:{hs["color"]};
+                            letter-spacing:0.12em; text-transform:uppercase;
+                            margin-bottom:0.8rem; opacity:0.8;'>
+                    Meeting Health Score
+                </div>
+
+                <!-- Sentiment -->
+                <div style='display:flex; align-items:center; gap:0.7rem; margin-bottom:0.45rem;'>
+                    <span style='font-size:0.74rem; color:#7A5040; width:120px; flex-shrink:0;'>Sentiment</span>
+                    <div style='flex:1; height:7px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;'>
+                        <div style='height:100%; width:{sent_w}%; background:{hs["color"]}; border-radius:999px; opacity:0.7;'></div>
+                    </div>
+                    <span style='font-size:0.72rem; color:{hs["color"]}; font-weight:600; width:28px; text-align:right;'>{bd["sentiment"]}/30</span>
+                </div>
+
+                <!-- Action clarity -->
+                <div style='display:flex; align-items:center; gap:0.7rem; margin-bottom:0.45rem;'>
+                    <span style='font-size:0.74rem; color:#7A5040; width:120px; flex-shrink:0;'>Action Clarity</span>
+                    <div style='flex:1; height:7px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;'>
+                        <div style='height:100%; width:{act_w}%; background:{hs["color"]}; border-radius:999px; opacity:0.7;'></div>
+                    </div>
+                    <span style='font-size:0.72rem; color:{hs["color"]}; font-weight:600; width:28px; text-align:right;'>{bd["action_clarity"]}/25</span>
+                </div>
+
+                <!-- Soft rejection -->
+                <div style='display:flex; align-items:center; gap:0.7rem; margin-bottom:0.45rem;'>
+                    <span style='font-size:0.74rem; color:#7A5040; width:120px; flex-shrink:0;'>Communication Risk</span>
+                    <div style='flex:1; height:7px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;'>
+                        <div style='height:100%; width:{risk_w}%; background:{hs["color"]}; border-radius:999px; opacity:0.7;'></div>
+                    </div>
+                    <span style='font-size:0.72rem; color:{hs["color"]}; font-weight:600; width:28px; text-align:right;'>{bd["soft_rejection"]}/25</span>
+                </div>
+
+                <!-- Hallucination -->
+                <div style='display:flex; align-items:center; gap:0.7rem;'>
+                    <span style='font-size:0.74rem; color:#7A5040; width:120px; flex-shrink:0;'>AI Confidence</span>
+                    <div style='flex:1; height:7px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;'>
+                        <div style='height:100%; width:{hall_w}%; background:{hs["color"]}; border-radius:999px; opacity:0.7;'></div>
+                    </div>
+                    <span style='font-size:0.72rem; color:{hs["color"]}; font-weight:600; width:28px; text-align:right;'>{bd["hallucination"]}/20</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     exp = build_export_json(st.session_state.current_transcript, language, R)
     st.download_button(

@@ -607,6 +607,15 @@ def _validate_and_fill(data: dict) -> dict:
             if "talk" in bad_key and "pct" in bad_key and bad_key != "talk_time_pct":
                 spk["talk_time_pct"] = spk.pop(bad_key)
 
+    # Bug 2 fix: filter out non-Japanese text from nemawashi_signals
+    # LLM sometimes puts Hindi words (Haan) or English into this field
+    # Only keep strings that contain at least one Japanese character
+    _JP_RE = re.compile(r"[぀-鿿゠-ヿ･-ﾟ]")
+    ji["nemawashi_signals"] = [
+        s for s in ji.get("nemawashi_signals", [])
+        if isinstance(s, str) and _JP_RE.search(s)
+    ]
+
     speakers = data["speakers"]
     if speakers:
         total = sum(s.get("talk_time_pct", 0) for s in speakers)
