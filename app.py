@@ -637,21 +637,46 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sample transcript ────────────────────────────────────────────────────────
-SAMPLE_TRANSCRIPT = """田中: おはようございます。本日はお時間をいただきありがとうございます。
-鈴木: こちらこそ、よろしくお願いいたします。
-田中: Q4の進捗ですが、売上KPIは目標の98%に達しています。
-鈴木: 順調ですね。ただ、新機能のリリーススケジュールについては少し懸念がございます。
-田中: Yes, I understand. The release is April 1st — we may need a short buffer.
-鈴木: 検討いたします。技術チームとも相談しますが、難しいかもしれません。前向きに対応したいと思います。
-田中: Understood. では鈴木さんにサインオフをお願いできますか？
-鈴木: 承知しました。来週月曜までに確認いたします。
-田中: ありがとうございます。次に、サポートチームの増員についてですが。
-鈴木: 確認してみます。サポートマニュアルの改訂も同時に進めた方が良いかもしれません。
-田中: 同感です。鈴木さん、来週金曜までにドラフトをお願いできますか？
-鈴木: かしこまりました。対応いたします。
-田中: では次回は来週金曜15:00に。議事録は田中が担当します。
-鈴木: 承知いたしました。お疲れ様でした。"""
+# ── Sample transcripts ───────────────────────────────────────────────────────
+try:
+    from tests.sample_transcripts import (
+        SAMPLE_TRILINGUAL, SAMPLE_HIGH_CONFLICT, SAMPLE_HINGLISH_STANDUP
+    )
+except ImportError:
+    # Fallback if tests/ not in path
+    SAMPLE_TRILINGUAL = """Rahul: Good morning everyone. Aaj hum Q3 product launch ke baare mein discuss karenge.
+Priya: Haan, main ready hoon. Mujhe kuch concerns hain about the timeline.
+田中: おはようございます。よろしくお願いいたします。
+Rahul: Tanaka-san, can you give us the Japan market update first?
+田中: はい。Q3の日本市場では、売上目標の92%に達しています。ただ、新機能のリリースについては少し懸念がございます。
+Priya: Tanaka, yeh concern kya hai exactly? Timeline issue hai ya technical?
+田中: 検討いたします。Technical team se confirm karna padega. It might be difficult to meet the October deadline.
+Rahul: Okay. प्रिया, kya tum India market ka update de sakti ho?
+Priya: Haan bilkul. India mein hum 87% pe hain. Main blocker hai ki support team short-staffed hai.
+Rahul: Priya, can you prepare a staffing proposal by Friday?
+Priya: Dekhte hain. Thoda mushkil hai but koshish karenge.
+Rahul: I need a yes or no — Friday tak hoga ya nahi?
+Priya: Okay, yes. Friday tak de dungi.
+田中: 承知しました。Japan side se bhi ek resource provide kar sakte hain if needed.
+Rahul: Perfect. 田中 will confirm technical timeline by Wednesday. Next meeting Monday 10am.
+田中: はい、水曜日までに確認いたします。お疲れ様でした。"""
+
+    SAMPLE_HIGH_CONFLICT = """Client: This is completely unacceptable. The system has been down for 6 hours.
+Kenji: 大変申し訳ございません。We are working on it as fast as possible.
+Client: This is the second major outage this month. I need a written commitment.
+Kenji: ご要望はよく分かりました。上司に相談して、2時間以内に書面でご回答します。
+Client: If this isn't resolved by Friday we will reconsider the entire contract.
+Kenji: 誠に申し訳ございません。全力で対応いたします。We will not let that happen."""
+
+    SAMPLE_HINGLISH_STANDUP = """Sharma Sir: Sprint ka kya status hai? Deadline kal hai.
+Vikram: Haan sir, almost done hai. Bas ek bug hai jo thoda mushkil hai.
+Sharma Sir: Thoda mushkil matlab? Done hoga ya nahi kal tak?
+Vikram: Haan haan bilkul sir. Koshish karenge. Dekhte hain, manage ho jayega.
+Priya: Main help kar sakti hoon. Kal tak fix ho jayega, 100% committed hoon.
+Vikram: Main bhi karta hoon sir. Upar se baat karta hoon agar koi blocker aaya.
+Sharma Sir: Seedha mujhe batao. Aap jo theek samjhe karo, but kal tak complete chahiye."""
+
+SAMPLE_TRANSCRIPT = SAMPLE_TRILINGUAL   # default sample
 
 # ── Session state ────────────────────────────────────────────────────────────
 for k, v in [
@@ -696,18 +721,24 @@ if not st.session_state.groq_warmed:
             pass
 
         try:
-            # Task 2: Pre-cache sample transcript
-            # If already in vector store — nothing happens (upsert is idempotent)
-            # If not — analyze it once so "Load sample" is always instant
+            # Task 2: Pre-cache all sample transcripts
             from utils.vector_cache import get_cached_result, store_result, is_available
+            from analysis.analyzer import analyze_transcript as _analyze
             if is_available() and key:
-                cached = get_cached_result(SAMPLE_TRANSCRIPT, "mixed")
-                if not cached:
-                    # Run analysis and store — background, no rush
-                    from analysis.analyzer import analyze_transcript as _analyze
-                    result = _analyze(SAMPLE_TRANSCRIPT, "mixed")
-                    if "mock" not in result.get("_provider",""):
-                        store_result(SAMPLE_TRANSCRIPT, "mixed", result)
+                samples_to_cache = [
+                    (SAMPLE_TRILINGUAL,       "mixed"),
+                    (SAMPLE_HIGH_CONFLICT,    "mixed"),
+                    (SAMPLE_HINGLISH_STANDUP, "hi"),
+                ]
+                for _s_text, _s_lang in samples_to_cache:
+                    try:
+                        _cached = get_cached_result(_s_text, _s_lang)
+                        if not _cached:
+                            _result = _analyze(_s_text, _s_lang)
+                            if "mock" not in _result.get("_provider",""):
+                                store_result(_s_text, _s_lang, _result)
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -914,10 +945,18 @@ with col_paste:
     if inp != st.session_state.transcript_text:
         st.session_state.transcript_text = inp
 
-c_sample, c_clear, _ = st.columns([0.2, 0.14, 0.66])
-with c_sample:
-    if st.button("Load sample"):
-        st.session_state.transcript_text = SAMPLE_TRANSCRIPT
+c_s1, c_s2, c_s3, c_clear, _ = st.columns([0.22, 0.22, 0.22, 0.14, 0.20])
+with c_s1:
+    if st.button("🌐 Trilingual", help="Hindi + English + Japanese — tests cross-script name switching", use_container_width=True):
+        st.session_state.transcript_text = SAMPLE_TRILINGUAL
+        st.rerun()
+with c_s2:
+    if st.button("⚡ Conflict", help="High-conflict EN+JA — escalation, aggressive tone, PII", use_container_width=True):
+        st.session_state.transcript_text = SAMPLE_HIGH_CONFLICT
+        st.rerun()
+with c_s3:
+    if st.button("🗣️ Hinglish", help="Pure Hinglish standup — Hindi NLP layer, hierarchical yes, jugaad", use_container_width=True):
+        st.session_state.transcript_text = SAMPLE_HINGLISH_STANDUP
         st.rerun()
 with c_clear:
     if st.button("Clear"):
