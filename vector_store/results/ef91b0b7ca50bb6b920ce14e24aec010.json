@@ -1,0 +1,233 @@
+{
+  "full_summary": "The meeting focused on the Q3 product launch, with updates on the Japan and India markets. Concerns about the technical timeline and staffing were raised, leading to commitments for a staffing proposal by Friday and technical confirmation by Wednesday. The next meeting is scheduled for Monday at 10am.",
+  "summary": [
+    "Discussion on Q3 product launch and market updates from Japan and India.",
+    "NAME_4 highlighted Japan's 92% sales target achievement but noted technical concerns about the October deadline.",
+    "NAME_3 mentioned India's 87% performance with a staffing shortage as a blocker.",
+    "NAME_2 requested a staffing proposal by Friday and technical confirmation by Wednesday.",
+    "Next meeting scheduled for Monday at 10am."
+  ],
+  "action_items": [
+    {
+      "task": "Confirm technical timeline for Japan market release",
+      "owner": "NAME_4",
+      "deadline": "Wednesday",
+      "confidence": 0.5,
+      "grounding": {
+        "task_token_overlap": 0.833,
+        "task_semantic": null,
+        "task_effective": 0.833,
+        "owner_score": 0.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.518
+    },
+    {
+      "task": "Prepare staffing proposal for India market",
+      "owner": "NAME_3",
+      "deadline": "Friday",
+      "confidence": 0.7,
+      "grounding": {
+        "task_token_overlap": 1.0,
+        "task_semantic": null,
+        "task_effective": 1.0,
+        "owner_score": 0.0,
+        "deadline_score": 1.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.203
+    },
+    {
+      "task": "Next meeting on Monday at 09:00 AM",
+      "owner": "All",
+      "deadline": "Monday",
+      "confidence": 0.46,
+      "grounding": {
+        "task_token_overlap": 0.6,
+        "task_semantic": null,
+        "task_effective": 0.6,
+        "owner_score": 0.0,
+        "deadline_score": 1.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.278
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "NAME_2",
+      "score": "neutral",
+      "label": "Firm and deadline-driven"
+    },
+    {
+      "speaker": "NAME_3",
+      "score": "neutral",
+      "label": "Hesitant but committed"
+    },
+    {
+      "speaker": "NAME_4",
+      "score": "neutral",
+      "label": "Formal and cooperative"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "NAME_2",
+      "talk_time_pct": 30,
+      "tone": "neutral",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    },
+    {
+      "name": "NAME_3",
+      "talk_time_pct": 35,
+      "tone": "neutral",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    },
+    {
+      "name": "NAME_4",
+      "talk_time_pct": 35,
+      "tone": "neutral",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "high",
+    "nemawashi_signals": [],
+    "code_switch_count": 11,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "Confirm technical timeline for Japan market release",
+          "owner": "NAME_4",
+          "deadline": "Wednesday",
+          "confidence": 0.5,
+          "grounding": {
+            "task_token_overlap": 0.833,
+            "task_semantic": null,
+            "task_effective": 0.833,
+            "owner_score": 0.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.518
+        },
+        {
+          "task": "Prepare staffing proposal for India market",
+          "owner": "NAME_3",
+          "deadline": "Friday",
+          "confidence": 0.7,
+          "grounding": {
+            "task_token_overlap": 1.0,
+            "task_semantic": null,
+            "task_effective": 1.0,
+            "owner_score": 0.0,
+            "deadline_score": 1.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.203
+        },
+        {
+          "task": "Next meeting on Monday at 09:00 AM",
+          "owner": "All",
+          "deadline": "Monday",
+          "confidence": 0.46,
+          "grounding": {
+            "task_token_overlap": 0.6,
+            "task_semantic": null,
+            "task_effective": 0.6,
+            "owner_score": 0.0,
+            "deadline_score": 1.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.278
+        }
+      ],
+      "flagged": [],
+      "total": 3,
+      "verified_count": 3,
+      "flagged_count": 0,
+      "avg_confidence": 0.553,
+      "hallucination_rate": 0.0
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "Discussion on Q3 product launch and market updates from Japan and India.",
+          "grounding_score": 0.625,
+          "hallucination_flag": false
+        },
+        {
+          "text": "NAME_4 highlighted Japan's 92% sales target achievement but noted technical concerns about the October deadline.",
+          "grounding_score": 0.5,
+          "hallucination_flag": false
+        },
+        {
+          "text": "NAME_3 mentioned India's 87% performance with a staffing shortage as a blocker.",
+          "grounding_score": 0.222,
+          "hallucination_flag": false
+        },
+        {
+          "text": "NAME_2 requested a staffing proposal by Friday and technical confirmation by Wednesday.",
+          "grounding_score": 0.625,
+          "hallucination_flag": false
+        },
+        {
+          "text": "Next meeting scheduled for Monday at 10am.",
+          "grounding_score": 0.8,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 5,
+      "flagged_count": 0,
+      "total": 5
+    },
+    "sentiment_speakers": {
+      "verified": [],
+      "flagged": [
+        {
+          "speaker": "NAME_2",
+          "score": "neutral",
+          "label": "Firm and deadline-driven",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_2' not found in transcript — may be hallucinated"
+        },
+        {
+          "speaker": "NAME_3",
+          "score": "neutral",
+          "label": "Hesitant but committed",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_3' not found in transcript — may be hallucinated"
+        },
+        {
+          "speaker": "NAME_4",
+          "score": "neutral",
+          "label": "Formal and cooperative",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_4' not found in transcript — may be hallucinated"
+        }
+      ],
+      "verified_count": 0,
+      "flagged_count": 3
+    },
+    "overall_hallucination_risk": 0.273,
+    "risk_label": "MEDIUM",
+    "flagged_total": 3,
+    "total_claims": 11,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [
+      {
+        "phrase": 

@@ -1,0 +1,208 @@
+{
+  "full_summary": "The meeting centered on a critical system outage that has caused significant downtime. NAME_1 expressed frustration over repeated failures and demanded a written commitment with a strict deadline. NAME_2 apologized and assured that the issue would be resolved by the end of the week, promising direct communication. The conversation ended with mutual understanding, though NAME_1 issued a final warning about potential contract reconsideration.",
+  "summary": [
+    "A critical system outage has caused 6 hours of downtime, with NAME_1 expressing frustration over repeated failures.",
+    "NAME_2 apologized and committed to resolving the issue by the end of the week with direct communication.",
+    "NAME_1 warned of potential contract reconsideration if the issue isn't resolved by Friday."
+  ],
+  "action_items": [
+    {
+      "task": "Ensure direct communication via phone and email",
+      "owner": "NAME_2",
+      "deadline": "2pm",
+      "confidence": 0.3,
+      "grounding": {
+        "task_token_overlap": 0.5,
+        "task_semantic": null,
+        "task_effective": 0.5,
+        "owner_score": 0.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.122
+    },
+    {
+      "task": "Resolve the system outage by Friday",
+      "owner": "NAME_2",
+      "deadline": "Friday",
+      "confidence": 0.55,
+      "grounding": {
+        "task_token_overlap": 0.75,
+        "task_semantic": null,
+        "task_effective": 0.75,
+        "owner_score": 0.0,
+        "deadline_score": 1.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.651
+    },
+    {
+      "task": "Provide a written commitment to resolve the issue by 2pm",
+      "owner": "NAME_2",
+      "deadline": "2pm",
+      "confidence": 0.1,
+      "grounding": {
+        "task_token_overlap": 0.167,
+        "task_semantic": null,
+        "task_effective": 0.167,
+        "owner_score": 0.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "flag_reason": null,
+      "semantic_grounding": 0.554,
+      "rescued_by": "semantic_validation"
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "NAME_1",
+      "score": "negative",
+      "label": "Frustrated and demanding"
+    },
+    {
+      "speaker": "NAME_2",
+      "score": "neutral",
+      "label": "Professional and apologetic"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "NAME_1",
+      "talk_time_pct": 50,
+      "tone": "assertive",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    },
+    {
+      "name": "NAME_2",
+      "talk_time_pct": 50,
+      "tone": "neutral",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "high",
+    "nemawashi_signals": [],
+    "code_switch_count": 15,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "Ensure direct communication via phone and email",
+          "owner": "NAME_2",
+          "deadline": "2pm",
+          "confidence": 0.3,
+          "grounding": {
+            "task_token_overlap": 0.5,
+            "task_semantic": null,
+            "task_effective": 0.5,
+            "owner_score": 0.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.122
+        },
+        {
+          "task": "Resolve the system outage by Friday",
+          "owner": "NAME_2",
+          "deadline": "Friday",
+          "confidence": 0.55,
+          "grounding": {
+            "task_token_overlap": 0.75,
+            "task_semantic": null,
+            "task_effective": 0.75,
+            "owner_score": 0.0,
+            "deadline_score": 1.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.651
+        }
+      ],
+      "flagged": [
+        {
+          "task": "Provide a written commitment to resolve the issue by 2pm",
+          "owner": "NAME_2",
+          "deadline": "2pm",
+          "confidence": 0.1,
+          "grounding": {
+            "task_token_overlap": 0.167,
+            "task_semantic": null,
+            "task_effective": 0.167,
+            "owner_score": 0.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "flag_reason": null,
+          "semantic_grounding": 0.554,
+          "rescued_by": "semantic_validation"
+        }
+      ],
+      "total": 3,
+      "verified_count": 2,
+      "flagged_count": 1,
+      "avg_confidence": 0.317,
+      "hallucination_rate": 0.333
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "A critical system outage has caused 6 hours of downtime, with NAME_1 expressing frustration over repeated failures.",
+          "grounding_score": 0.231,
+          "hallucination_flag": false
+        },
+        {
+          "text": "NAME_1 warned of potential contract reconsideration if the issue isn't resolved by Friday.",
+          "grounding_score": 0.3,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [
+        {
+          "text": "NAME_2 apologized and committed to resolving the issue by the end of the week with direct communication.",
+          "grounding_score": 0.111,
+          "hallucination_flag": true,
+          "flag_reason": "Low transcript grounding (score: 0.111) — verify this bullet"
+        }
+      ],
+      "verified_count": 2,
+      "flagged_count": 1,
+      "total": 3
+    },
+    "sentiment_speakers": {
+      "verified": [],
+      "flagged": [
+        {
+          "speaker": "NAME_1",
+          "score": "negative",
+          "label": "Frustrated and demanding",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_1' not found in transcript — may be hallucinated"
+        },
+        {
+          "speaker": "NAME_2",
+          "score": "neutral",
+          "label": "Professional and apologetic",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker 'NAME_2' not found in transcript — may be hallucinated"
+        }
+      ],
+      "verified_count": 0,
+      "flagged_count": 2
+    },
+    "overall_hallucination_risk": 0.5,
+    "risk_label": "HIGH",
+    "flagged_total": 4,
+    "total_claims": 8,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [
+      {
+        "phrase": 

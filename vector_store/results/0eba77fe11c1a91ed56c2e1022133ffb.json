@@ -1,0 +1,233 @@
+{
+  "full_summary": "The team discussed the status of the sprint nearing its deadline. [NAME_2] acknowledged a minor bug issue, while [NAME_3] offered assistance. [NAME_1] emphasized direct communication, and the team agreed on [NAME_3] leading the fix with [NAME_2] providing support. The meeting concluded with a commitment to resolve the issue by the deadline.",
+  "summary": [
+    "The team discussed the sprint status and a minor bug issue.",
+    "[NAME_2] confirmed the bug is challenging but committed to resolving it.",
+    "[NAME_3] will lead the fix with [NAME_2] supporting, with an update scheduled for the next day."
+  ],
+  "action_items": [
+    {
+      "task": "Fix the backend race condition issue",
+      "owner": "[NAME_2]",
+      "deadline": "Next day",
+      "confidence": 0.9,
+      "grounding": {
+        "task_token_overlap": 1.0,
+        "task_semantic": null,
+        "task_effective": 1.0,
+        "owner_score": 1.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.088
+    },
+    {
+      "task": "Provide an update on the fix",
+      "owner": "[NAME_3]",
+      "deadline": "Next day 10 AM",
+      "confidence": 0.725,
+      "grounding": {
+        "task_token_overlap": 0.667,
+        "task_semantic": null,
+        "task_effective": 0.667,
+        "owner_score": 1.0,
+        "deadline_score": 0.25
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.123
+    },
+    {
+      "task": "Coordinate with [NAME_2] for any blockers",
+      "owner": "[NAME_1]",
+      "deadline": "Next day",
+      "confidence": 0.15,
+      "grounding": {
+        "task_token_overlap": 0.25,
+        "task_semantic": null,
+        "task_effective": 0.25,
+        "owner_score": 0.0,
+        "deadline_score": 0.0
+      },
+      "hallucination_flag": false,
+      "semantic_grounding": 0.223
+    }
+  ],
+  "sentiment": [
+    {
+      "speaker": "[NAME_1]",
+      "score": "neutral",
+      "label": "Direct and firm"
+    },
+    {
+      "speaker": "[NAME_2]",
+      "score": "neutral",
+      "label": "Cautious but committed"
+    },
+    {
+      "speaker": "[NAME_3]",
+      "score": "positive",
+      "label": "Confident and proactive"
+    }
+  ],
+  "speakers": [
+    {
+      "name": "[NAME_1]",
+      "talk_time_pct": 40,
+      "tone": "assertive",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    },
+    {
+      "name": "[NAME_2]",
+      "talk_time_pct": 35,
+      "tone": "neutral",
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    },
+    {
+      "name": "[NAME_3]",
+      "tone": "cooperative",
+      "talk_time_pct": 25,
+      "tone_label": "Professional tone",
+      "tone_intensity": 3
+    }
+  ],
+  "japan_insights": {
+    "keigo_level": "low",
+    "nemawashi_signals": [],
+    "code_switch_count": 0,
+    "keigo_source": "mecab",
+    "code_switch_source": "rule_based"
+  },
+  "verification": {
+    "action_items": {
+      "verified": [
+        {
+          "task": "Fix the backend race condition issue",
+          "owner": "[NAME_2]",
+          "deadline": "Next day",
+          "confidence": 0.9,
+          "grounding": {
+            "task_token_overlap": 1.0,
+            "task_semantic": null,
+            "task_effective": 1.0,
+            "owner_score": 1.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.088
+        },
+        {
+          "task": "Provide an update on the fix",
+          "owner": "[NAME_3]",
+          "deadline": "Next day 10 AM",
+          "confidence": 0.725,
+          "grounding": {
+            "task_token_overlap": 0.667,
+            "task_semantic": null,
+            "task_effective": 0.667,
+            "owner_score": 1.0,
+            "deadline_score": 0.25
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.123
+        },
+        {
+          "task": "Coordinate with [NAME_2] for any blockers",
+          "owner": "[NAME_1]",
+          "deadline": "Next day",
+          "confidence": 0.15,
+          "grounding": {
+            "task_token_overlap": 0.25,
+            "task_semantic": null,
+            "task_effective": 0.25,
+            "owner_score": 0.0,
+            "deadline_score": 0.0
+          },
+          "hallucination_flag": false,
+          "semantic_grounding": 0.223
+        }
+      ],
+      "flagged": [],
+      "total": 3,
+      "verified_count": 3,
+      "flagged_count": 0,
+      "avg_confidence": 0.592,
+      "hallucination_rate": 0.0
+    },
+    "summary": {
+      "verified": [
+        {
+          "text": "The team discussed the sprint status and a minor bug issue.",
+          "grounding_score": 0.429,
+          "hallucination_flag": false
+        },
+        {
+          "text": "[NAME_2] confirmed the bug is challenging but committed to resolving it.",
+          "grounding_score": 0.375,
+          "hallucination_flag": false
+        },
+        {
+          "text": "[NAME_3] will lead the fix with [NAME_2] supporting, with an update scheduled for the next day.",
+          "grounding_score": 0.556,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [],
+      "verified_count": 3,
+      "flagged_count": 0,
+      "total": 3
+    },
+    "sentiment_speakers": {
+      "verified": [
+        {
+          "speaker": "[NAME_2]",
+          "score": "neutral",
+          "label": "Cautious but committed",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        },
+        {
+          "speaker": "[NAME_3]",
+          "score": "positive",
+          "label": "Confident and proactive",
+          "speaker_grounding": 1.0,
+          "hallucination_flag": false
+        }
+      ],
+      "flagged": [
+        {
+          "speaker": "[NAME_1]",
+          "score": "neutral",
+          "label": "Direct and firm",
+          "speaker_grounding": 0.0,
+          "hallucination_flag": true,
+          "flag_reason": "Speaker '[NAME_1]' not found in transcript — may be hallucinated"
+        }
+      ],
+      "verified_count": 2,
+      "flagged_count": 1
+    },
+    "overall_hallucination_risk": 0.111,
+    "risk_label": "LOW",
+    "flagged_total": 1,
+    "total_claims": 9,
+    "note": "Items with hallucination_flag=True are low-confidence — verify manually"
+  },
+  "soft_rejections": {
+    "detected": [],
+    "high_signals": [],
+    "medium_signals": [],
+    "low_signals": [],
+    "total_signals": 0,
+    "rejection_count": 0,
+    "hesitation_count": 0,
+    "uncertain_count": 0,
+    "risk_level": "NONE",
+    "risk_summary": "No soft rejection patterns detected. Communication appears direct and positive.",
+    "cultural_note": "Direct refusal is avoided in high-context communication cultures. These patterns indicate the speaker's true intent through indirect language. Always follow up in writing to confirm."
+  },
+  "_provider": "ollama_langchain",
+  "_duration_ms": 77621.5,
+  "_cached_at": "2026-05-10T10:22:10"
+}
