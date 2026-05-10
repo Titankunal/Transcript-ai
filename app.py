@@ -592,6 +592,25 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     background: rgba(217,96,128,0.09);
     color: #D96080;
 }
+.tai-lnk-active {
+    background: rgba(217,96,128,0.12) !important;
+    color: #D96080 !important;
+    font-weight: 500;
+}
+/* Hamburger open animation */
+#tai-hbg.tai-hbg-open span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+#tai-hbg.tai-hbg-open span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+#tai-hbg.tai-hbg-open span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+#tai-hbg span {
+    transition: transform 0.2s ease, opacity 0.15s ease;
+}
 .tai-badge {
     font-size: 0.66rem;
     font-weight: 600;
@@ -747,26 +766,148 @@ if not st.session_state.groq_warmed:
 
 
 
-# ── Navbar ───────────────────────────────────────────────────────────────────
-st.markdown(
-    "<div id='tai-nav'>"
-    "<div id='tai-hbg' onclick='taiToggle()'>"
-    "<span></span><span></span><span></span>"
-    "</div>"
-    "<span class='tai-brand'>TranscriptAI</span>"
-    "<span class='tai-dot'>&middot;</span>"
-    "<div class='tai-links'>"
-    "<span class='tai-lnk'>Analyze</span>"
-    "<span class='tai-lnk'>History</span>"
-    "<span class='tai-lnk'>Trends</span>"
-    "<span class='tai-lnk'>Evaluate</span>"
-    "</div>"
-    "<div class='tai-badge'>&#10003; APPI Compliant</div>"
-    "</div>",
-    unsafe_allow_html=True,
-)
-_tai_js = "<script>function taiToggle(){"     + "var a=document.querySelector('[data-testid=' + String.fromCharCode(34) + 'stSidebarCollapseButton' + String.fromCharCode(34) + '] button');"     + "if(a){a.click();return;}"     + "var b=document.querySelector('[data-testid=' + String.fromCharCode(34) + 'collapsedControl' + String.fromCharCode(34) + ']');"     + "if(b){b.click();return;}"     + "}"     + "document.getElementById('tai-hbg').onclick=taiToggle;"     + "</script>"
-st.markdown(_tai_js, unsafe_allow_html=True)
+# ── Navbar — fully functional ─────────────────────────────────────────────────
+_NAV_HTML = """
+<div id='tai-nav'>
+  <div id='tai-hbg' title='Toggle Menu'>
+    <span></span><span></span><span></span>
+  </div>
+  <span class='tai-brand'>TranscriptAI</span>
+  <span class='tai-dot'>&middot;</span>
+  <div class='tai-links'>
+    <span class='tai-lnk' id='nav-analyze'>Analyze</span>
+    <span class='tai-lnk' id='nav-history'>History</span>
+    <span class='tai-lnk' id='nav-trends'>Trends</span>
+    <span class='tai-lnk' id='nav-evaluate'>Evaluate</span>
+  </div>
+  <div class='tai-badge'>&#10003; APPI Compliant</div>
+</div>
+
+<script>
+(function() {
+  /* ── Helpers ─────────────────────────────────────────── */
+
+  // Click a Streamlit tab by matching its visible text label
+  function clickTab(labelFragment) {
+    var tabs = document.querySelectorAll('[data-testid="stTabs"] button[role="tab"]');
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].innerText && tabs[i].innerText.indexOf(labelFragment) !== -1) {
+        tabs[i].click();
+        tabs[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Scroll to a DOM element smoothly
+  function scrollTo(el) {
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Toggle sidebar — tries all known Streamlit sidebar selectors
+  function toggleSidebar() {
+    var q = String.fromCharCode;
+    // Sidebar collapse button (when open)
+    var sel1 = '[data-testid=' + q(34) + 'stSidebarCollapseButton' + q(34) + '] button';
+    var a = document.querySelector(sel1);
+    if (a) { a.click(); return; }
+    // Collapsed control (when closed)
+    var sel2 = '[data-testid=' + q(34) + 'collapsedControl' + q(34) + ']';
+    var b = document.querySelector(sel2);
+    if (b) { b.click(); return; }
+  }
+
+  /* ── Nav actions ──────────────────────────────────────── */
+
+  function navAnalyze() {
+    // Scroll to transcript input area at top of page
+    var inp = document.querySelector('[data-testid="stTextArea"]') ||
+              document.querySelector('[data-testid="stFileUploader"]') ||
+              document.querySelector('.block-container');
+    scrollTo(inp);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function navHistory() {
+    // Open sidebar (where history lives) if closed
+    var sidebar = document.querySelector('[data-testid="stSidebar"]');
+    var isOpen  = sidebar && sidebar.getBoundingClientRect().left >= -10;
+    if (!isOpen) { toggleSidebar(); }
+
+    // After sidebar opens, scroll to Recent Analyses section
+    setTimeout(function() {
+      var sidebarBtns = document.querySelectorAll('[data-testid="stSidebar"] button');
+      if (sidebarBtns.length > 0) {
+        sidebarBtns[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 350);
+  }
+
+  function navTrends() {
+    // First scroll results into view, then click Trends tab
+    var results = document.querySelector('[data-testid="stTabs"]');
+    if (results) {
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(function() { clickTab('Trends'); }, 300);
+    } else {
+      // No results yet — scroll to analyze button
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Flash the analyze button as a hint
+      var btn = document.querySelector('[data-testid="stMainBlockContainer"] button');
+      if (btn) { btn.style.boxShadow = '0 0 0 4px rgba(217,96,128,0.5)'; setTimeout(function(){ btn.style.boxShadow = ''; }, 1200); }
+    }
+  }
+
+  function navEvaluate() {
+    var results = document.querySelector('[data-testid="stTabs"]');
+    if (results) {
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(function() { clickTab('Evaluation'); }, 300);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  /* ── Active state tracking ────────────────────────────── */
+  function setActive(id) {
+    var links = document.querySelectorAll('.tai-lnk');
+    for (var i = 0; i < links.length; i++) {
+      links[i].classList.remove('tai-lnk-active');
+    }
+    var el = document.getElementById(id);
+    if (el) el.classList.add('tai-lnk-active');
+  }
+
+  /* ── Attach events ────────────────────────────────────── */
+  function attach() {
+    var hbg      = document.getElementById('tai-hbg');
+    var analyze  = document.getElementById('nav-analyze');
+    var history  = document.getElementById('nav-history');
+    var trends   = document.getElementById('nav-trends');
+    var evaluate = document.getElementById('nav-evaluate');
+
+    if (!hbg) { setTimeout(attach, 400); return; }
+
+    hbg.onclick      = toggleSidebar;
+
+    analyze.onclick  = function() { setActive('nav-analyze');  navAnalyze();  };
+    history.onclick  = function() { setActive('nav-history');  navHistory();  };
+    trends.onclick   = function() { setActive('nav-trends');   navTrends();   };
+    evaluate.onclick = function() { setActive('nav-evaluate'); navEvaluate(); };
+
+    // Hamburger animation on toggle
+    hbg.onclick = function() {
+      hbg.classList.toggle('tai-hbg-open');
+      toggleSidebar();
+    };
+  }
+
+  setTimeout(attach, 600);
+})();
+</script>
+"""
+st.markdown(_NAV_HTML, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
