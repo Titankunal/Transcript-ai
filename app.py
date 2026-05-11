@@ -526,106 +526,41 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     position: relative;
 }
 
-/* ── Navbar ──────────────────────────────────────────────────────────────── */
-#tai-nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 999999;
-    height: 50px;
-    background: rgba(250,246,242,0.88);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(239,226,216,0.8);
-    display: flex;
-    align-items: center;
-    padding: 0 1.2rem;
-    gap: 0.8rem;
-    font-family: 'DM Sans', sans-serif;
-}
+/* ── Hamburger button ─────────────────────────────────────────────────────── */
 #tai-hbg {
+    position: fixed;
+    top: 14px;
+    left: 16px;
+    z-index: 999999;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     cursor: pointer;
-    padding: 7px 8px;
-    border-radius: 6px;
-    transition: background 0.15s;
-    flex-shrink: 0;
-    border: none;
-    background: transparent;
+    padding: 8px 9px;
+    border-radius: 8px;
+    background: rgba(250,246,242,0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(239,226,216,0.9);
+    box-shadow: 0 2px 8px rgba(60,36,22,0.08);
+    transition: background 0.15s, box-shadow 0.15s;
 }
-#tai-hbg:hover { background: rgba(217,96,128,0.12); }
+#tai-hbg:hover {
+    background: rgba(217,96,128,0.10);
+    box-shadow: 0 2px 12px rgba(217,96,128,0.18);
+}
 #tai-hbg span {
     display: block;
     width: 18px;
     height: 2px;
     background: #3C2416;
     border-radius: 2px;
-}
-.tai-brand {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: #3C2416;
-    flex-shrink: 0;
-}
-.tai-dot {
-    color: #D96080;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-.tai-links {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    flex: 1;
-}
-.tai-lnk {
-    font-size: 0.78rem;
-    color: #7A5040;
-    padding: 0.28rem 0.65rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    white-space: nowrap;
-}
-.tai-lnk:hover {
-    background: rgba(217,96,128,0.09);
-    color: #D96080;
-}
-.tai-lnk-active {
-    background: rgba(217,96,128,0.12) !important;
-    color: #D96080 !important;
-    font-weight: 500;
-}
-/* Hamburger open animation */
-#tai-hbg.tai-hbg-open span:nth-child(1) {
-    transform: translateY(6px) rotate(45deg);
-}
-#tai-hbg.tai-hbg-open span:nth-child(2) {
-    opacity: 0;
-    transform: scaleX(0);
-}
-#tai-hbg.tai-hbg-open span:nth-child(3) {
-    transform: translateY(-6px) rotate(-45deg);
-}
-#tai-hbg span {
     transition: transform 0.2s ease, opacity 0.15s ease;
 }
-.tai-badge {
-    font-size: 0.66rem;
-    font-weight: 600;
-    color: #486858;
-    background: rgba(72,104,88,0.10);
-    border: 1px solid rgba(72,104,88,0.22);
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    margin-left: auto;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-/* Push content below navbar */
-.block-container { padding-top: 3.8rem !important; }
-/* Hide Streamlit's own collapsed control — our hamburger handles it */
+#tai-hbg.tai-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+#tai-hbg.tai-open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+#tai-hbg.tai-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+/* Hide Streamlit's own collapsed control — hamburger handles it */
 [data-testid="collapsedControl"] { display: none !important; }
 
 /* Previous session card */
@@ -701,7 +636,7 @@ SAMPLE_TRANSCRIPT = SAMPLE_TRILINGUAL   # default sample
 for k, v in [
     ("history", []), ("results", None), ("current_transcript", ""),
     ("current_language", ""), ("transcript_text", ""), ("pii_report", None),
-    ("groq_warmed", False),
+    ("groq_warmed", False), ("nav_tab", None),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -766,7 +701,7 @@ if not st.session_state.groq_warmed:
 
 
 
-# ── Navbar — fully functional ─────────────────────────────────────────────────
+# ── Navbar — fully functional via session_state ───────────────────────────────
 _NAV_HTML = """
 <div id='tai-nav'>
   <div id='tai-hbg' title='Toggle Menu'>
@@ -775,7 +710,7 @@ _NAV_HTML = """
   <span class='tai-brand'>TranscriptAI</span>
   <span class='tai-dot'>&middot;</span>
   <div class='tai-links'>
-    <span class='tai-lnk' id='nav-analyze'>Analyze</span>
+    <a class='tai-lnk' id='nav-analyze' href='#transcript-input'>Analyze</a>
     <span class='tai-lnk' id='nav-history'>History</span>
     <span class='tai-lnk' id='nav-trends'>Trends</span>
     <span class='tai-lnk' id='nav-evaluate'>Evaluate</span>
@@ -785,125 +720,105 @@ _NAV_HTML = """
 
 <script>
 (function() {
-  /* ── Helpers ─────────────────────────────────────────── */
+  var q = String.fromCharCode;
 
-  // Click a Streamlit tab by matching its visible text label
-  function clickTab(labelFragment) {
-    var tabs = document.querySelectorAll('[data-testid="stTabs"] button[role="tab"]');
-    for (var i = 0; i < tabs.length; i++) {
-      if (tabs[i].innerText && tabs[i].innerText.indexOf(labelFragment) !== -1) {
-        tabs[i].click();
-        tabs[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  function toggleSidebar() {
+    var s1 = '[data-testid=' + q(34) + 'stSidebarCollapseButton' + q(34) + '] button';
+    var s2 = '[data-testid=' + q(34) + 'collapsedControl' + q(34) + ']';
+    var a  = document.querySelector(s1) || document.querySelector(s2);
+    if (a) { a.click(); }
+  }
+
+  // Click a hidden Streamlit button by its key (data-testid contains key)
+  function clickHidden(btnId) {
+    var btn = document.getElementById(btnId);
+    if (btn) { btn.click(); return true; }
+    // Streamlit wraps buttons — try finding by text
+    var allBtns = document.querySelectorAll('button');
+    for (var i = 0; i < allBtns.length; i++) {
+      if (allBtns[i].getAttribute('data-nav') === btnId) {
+        allBtns[i].click();
         return true;
       }
     }
     return false;
   }
 
-  // Scroll to a DOM element smoothly
-  function scrollTo(el) {
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  // Toggle sidebar — tries all known Streamlit sidebar selectors
-  function toggleSidebar() {
-    var q = String.fromCharCode;
-    // Sidebar collapse button (when open)
-    var sel1 = '[data-testid=' + q(34) + 'stSidebarCollapseButton' + q(34) + '] button';
-    var a = document.querySelector(sel1);
-    if (a) { a.click(); return; }
-    // Collapsed control (when closed)
-    var sel2 = '[data-testid=' + q(34) + 'collapsedControl' + q(34) + ']';
-    var b = document.querySelector(sel2);
-    if (b) { b.click(); return; }
-  }
-
-  /* ── Nav actions ──────────────────────────────────────── */
-
-  function navAnalyze() {
-    // Scroll to transcript input area at top of page
-    var inp = document.querySelector('[data-testid="stTextArea"]') ||
-              document.querySelector('[data-testid="stFileUploader"]') ||
-              document.querySelector('.block-container');
-    scrollTo(inp);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function navHistory() {
-    // Open sidebar (where history lives) if closed
-    var sidebar = document.querySelector('[data-testid="stSidebar"]');
-    var isOpen  = sidebar && sidebar.getBoundingClientRect().left >= -10;
-    if (!isOpen) { toggleSidebar(); }
-
-    // After sidebar opens, scroll to Recent Analyses section
-    setTimeout(function() {
-      var sidebarBtns = document.querySelectorAll('[data-testid="stSidebar"] button');
-      if (sidebarBtns.length > 0) {
-        sidebarBtns[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }, 350);
-  }
-
-  function navTrends() {
-    // First scroll results into view, then click Trends tab
-    var results = document.querySelector('[data-testid="stTabs"]');
-    if (results) {
-      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(function() { clickTab('Trends'); }, 300);
-    } else {
-      // No results yet — scroll to analyze button
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Flash the analyze button as a hint
-      var btn = document.querySelector('[data-testid="stMainBlockContainer"] button');
-      if (btn) { btn.style.boxShadow = '0 0 0 4px rgba(217,96,128,0.5)'; setTimeout(function(){ btn.style.boxShadow = ''; }, 1200); }
-    }
-  }
-
-  function navEvaluate() {
-    var results = document.querySelector('[data-testid="stTabs"]');
-    if (results) {
-      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(function() { clickTab('Evaluation'); }, 300);
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }
-
-  /* ── Active state tracking ────────────────────────────── */
   function setActive(id) {
-    var links = document.querySelectorAll('.tai-lnk');
-    for (var i = 0; i < links.length; i++) {
-      links[i].classList.remove('tai-lnk-active');
-    }
+    document.querySelectorAll('.tai-lnk').forEach(function(el) {
+      el.classList.remove('tai-lnk-active');
+    });
     var el = document.getElementById(id);
     if (el) el.classList.add('tai-lnk-active');
   }
 
-  /* ── Attach events ────────────────────────────────────── */
   function attach() {
-    var hbg      = document.getElementById('tai-hbg');
-    var analyze  = document.getElementById('nav-analyze');
-    var history  = document.getElementById('nav-history');
-    var trends   = document.getElementById('nav-trends');
-    var evaluate = document.getElementById('nav-evaluate');
-
+    var hbg = document.getElementById('tai-hbg');
     if (!hbg) { setTimeout(attach, 400); return; }
 
-    hbg.onclick      = toggleSidebar;
-
-    analyze.onclick  = function() { setActive('nav-analyze');  navAnalyze();  };
-    history.onclick  = function() { setActive('nav-history');  navHistory();  };
-    trends.onclick   = function() { setActive('nav-trends');   navTrends();   };
-    evaluate.onclick = function() { setActive('nav-evaluate'); navEvaluate(); };
-
-    // Hamburger animation on toggle
+    // Hamburger — toggle sidebar + X animation
     hbg.onclick = function() {
       hbg.classList.toggle('tai-hbg-open');
       toggleSidebar();
     };
+
+    // Analyze — scroll to top input
+    var navA = document.getElementById('nav-analyze');
+    if (navA) {
+      navA.onclick = function(e) {
+        setActive('nav-analyze');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    }
+
+    // History — open sidebar
+    var navH = document.getElementById('nav-history');
+    if (navH) {
+      navH.onclick = function() {
+        setActive('nav-history');
+        var sidebar = document.querySelector('[data-testid=' + q(34) + 'stSidebar' + q(34) + ']');
+        var isOpen  = sidebar && sidebar.getBoundingClientRect().left > -200;
+        if (!isOpen) { toggleSidebar(); }
+        setTimeout(function() {
+          var sidebarEl = document.querySelector('[data-testid=' + q(34) + 'stSidebar' + q(34) + ']');
+          if (sidebarEl) sidebarEl.scrollTop = 300;
+        }, 400);
+      };
+    }
+
+    // Trends — click hidden Streamlit button __nav_trends
+    var navT = document.getElementById('nav-trends');
+    if (navT) {
+      navT.onclick = function() {
+        setActive('nav-trends');
+        // Find the hidden nav button Streamlit rendered
+        var allBtns = document.querySelectorAll('button');
+        for (var i = 0; i < allBtns.length; i++) {
+          if (allBtns[i].innerText.trim() === '__nav_trends__') {
+            allBtns[i].click();
+            return;
+          }
+        }
+      };
+    }
+
+    // Evaluate — click hidden Streamlit button __nav_evaluate
+    var navE = document.getElementById('nav-evaluate');
+    if (navE) {
+      navE.onclick = function() {
+        setActive('nav-evaluate');
+        var allBtns = document.querySelectorAll('button');
+        for (var i = 0; i < allBtns.length; i++) {
+          if (allBtns[i].innerText.trim() === '__nav_evaluate__') {
+            allBtns[i].click();
+            return;
+          }
+        }
+      };
+    }
   }
 
-  setTimeout(attach, 600);
+  setTimeout(attach, 700);
 })();
 </script>
 """
@@ -1395,6 +1310,26 @@ if st.session_state.results:
     )
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
+    # ── Hidden navbar trigger buttons ────────────────────────────────────────
+    # These invisible buttons are clicked by the navbar JS to trigger reruns
+    _hcol1, _hcol2 = st.columns(2)
+    with _hcol1:
+        if st.button("__nav_trends__",   key="__nav_trends__",   help=""):
+            st.session_state.nav_tab = "trends"
+    with _hcol2:
+        if st.button("__nav_evaluate__", key="__nav_evaluate__", help=""):
+            st.session_state.nav_tab = "evaluate"
+
+    # Hide the buttons visually
+    st.markdown(
+        "<style>"
+        "button[kind='secondary'][data-testid='baseButton-secondary']:has(p:empty),"
+        "div:has(> button[kind='secondary'] > div > p:empty) { display:none !important; }"
+        "[data-testid='column']:has(button[title='']) { display:none !important; }"
+        "</style>",
+        unsafe_allow_html=True,
+    )
+
     # ── Dynamic tabs ──────────────────────────────────────────────────────────
     tab_labels = ["📝  Summary", "✅  Actions", "🌸  Sentiment", "🎤  Speakers"]
     if features.get("insight_tab_enabled"):
@@ -1409,6 +1344,29 @@ if st.session_state.results:
     t_actions   = tabs[1]
     t_sentiment = tabs[2]
     t_speakers  = tabs[3]
+
+    # Auto-select tab from navbar click
+    if st.session_state.get("nav_tab"):
+        _nav_target = st.session_state.nav_tab
+        st.session_state.nav_tab = None   # clear after use
+        _tab_map = {
+            "trends":   "📈  Trends",
+            "evaluate": "📊  Evaluation",
+        }
+        _target_label = _tab_map.get(_nav_target, "")
+        if _target_label:
+            # Inject JS to click the correct tab after render
+            _idx = next((i for i, l in enumerate(tab_labels) if _target_label in l), -1)
+            if _idx >= 0:
+                _q = chr(34)
+                _js_parts = [
+                    "<script>setTimeout(function(){",
+                    "var t=document.querySelectorAll(",
+                    _q + "[data-testid=" + _q + _q + "stTabs" + _q + _q + "] button[role=" + _q + _q + "tab" + _q + _q + "]" + _q + ");",
+                    "if(t[IDX]){t[IDX].click();t[IDX].scrollIntoView({behavior:'smooth',block:'start'});}".replace("IDX", str(_idx)),
+                    "},400);</script>"
+                ]
+                st.markdown("".join(_js_parts), unsafe_allow_html=True)
     idx         = 4
     t_insights  = tabs[idx] if features.get("insight_tab_enabled") else None
     if features.get("insight_tab_enabled"): idx += 1
