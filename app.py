@@ -636,7 +636,7 @@ SAMPLE_TRANSCRIPT = SAMPLE_TRILINGUAL   # default sample
 for k, v in [
     ("history", []), ("results", None), ("current_transcript", ""),
     ("current_language", ""), ("transcript_text", ""), ("pii_report", None),
-    ("groq_warmed", False), ("nav_tab", None),
+    ("groq_warmed", False),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -701,21 +701,10 @@ if not st.session_state.groq_warmed:
 
 
 
-# ── Navbar — fully functional via session_state ───────────────────────────────
+# ── Hamburger only ────────────────────────────────────────────────────────────
 _NAV_HTML = """
-<div id='tai-nav'>
-  <div id='tai-hbg' title='Toggle Menu'>
-    <span></span><span></span><span></span>
-  </div>
-  <span class='tai-brand'>TranscriptAI</span>
-  <span class='tai-dot'>&middot;</span>
-  <div class='tai-links'>
-    <a class='tai-lnk' id='nav-analyze' href='#transcript-input'>Analyze</a>
-    <span class='tai-lnk' id='nav-history'>History</span>
-    <span class='tai-lnk' id='nav-trends'>Trends</span>
-    <span class='tai-lnk' id='nav-evaluate'>Evaluate</span>
-  </div>
-  <div class='tai-badge'>&#10003; APPI Compliant</div>
+<div id='tai-hbg' title='Open / Close Menu'>
+  <span></span><span></span><span></span>
 </div>
 
 <script>
@@ -1310,26 +1299,6 @@ if st.session_state.results:
     )
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Hidden navbar trigger buttons ────────────────────────────────────────
-    # These invisible buttons are clicked by the navbar JS to trigger reruns
-    _hcol1, _hcol2 = st.columns(2)
-    with _hcol1:
-        if st.button("__nav_trends__",   key="__nav_trends__",   help=""):
-            st.session_state.nav_tab = "trends"
-    with _hcol2:
-        if st.button("__nav_evaluate__", key="__nav_evaluate__", help=""):
-            st.session_state.nav_tab = "evaluate"
-
-    # Hide the buttons visually
-    st.markdown(
-        "<style>"
-        "button[kind='secondary'][data-testid='baseButton-secondary']:has(p:empty),"
-        "div:has(> button[kind='secondary'] > div > p:empty) { display:none !important; }"
-        "[data-testid='column']:has(button[title='']) { display:none !important; }"
-        "</style>",
-        unsafe_allow_html=True,
-    )
-
     # ── Dynamic tabs ──────────────────────────────────────────────────────────
     tab_labels = ["📝  Summary", "✅  Actions", "🌸  Sentiment", "🎤  Speakers"]
     if features.get("insight_tab_enabled"):
@@ -1345,28 +1314,7 @@ if st.session_state.results:
     t_sentiment = tabs[2]
     t_speakers  = tabs[3]
 
-    # Auto-select tab from navbar click
-    if st.session_state.get("nav_tab"):
-        _nav_target = st.session_state.nav_tab
-        st.session_state.nav_tab = None   # clear after use
-        _tab_map = {
-            "trends":   "📈  Trends",
-            "evaluate": "📊  Evaluation",
-        }
-        _target_label = _tab_map.get(_nav_target, "")
-        if _target_label:
-            # Inject JS to click the correct tab after render
-            _idx = next((i for i, l in enumerate(tab_labels) if _target_label in l), -1)
-            if _idx >= 0:
-                _q = chr(34)
-                _js_parts = [
-                    "<script>setTimeout(function(){",
-                    "var t=document.querySelectorAll(",
-                    _q + "[data-testid=" + _q + _q + "stTabs" + _q + _q + "] button[role=" + _q + _q + "tab" + _q + _q + "]" + _q + ");",
-                    "if(t[IDX]){t[IDX].click();t[IDX].scrollIntoView({behavior:'smooth',block:'start'});}".replace("IDX", str(_idx)),
-                    "},400);</script>"
-                ]
-                st.markdown("".join(_js_parts), unsafe_allow_html=True)
+
     idx         = 4
     t_insights  = tabs[idx] if features.get("insight_tab_enabled") else None
     if features.get("insight_tab_enabled"): idx += 1
