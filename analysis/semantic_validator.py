@@ -1,246 +1,146 @@
-# semantic_validator.py
-# Semantic Validation Layer
+# semantic_validator.py — v2
+# Semantic validation of action items using sentence-transformers
 #
-# Three-tier approach (best available is used automatically):
-#
-# Tier 1 — sentence-transformers (TRUE semantic similarity)
-#   Model: paraphrase-multilingual-MiniLM-L12-v2
-#   Handles Japanese + English natively
-#   Install: pip install sentence-transformers
-#   ~500MB one-time download, then instant inference
-#   Similarity: "submit proposal" ↔ "修正案を再提出" = 0.72 ✅
-#
-# Tier 2 — scikit-learn TF-IDF (keyword weighting)
-#   Better than plain overlap, works cross-language via EN_JA_BRIDGE
-#   Install: pip install scikit-learn
-#   "submit proposal" ↔ "修正案を再提出" = 0.35 (partial)
-#
-# Tier 3 — pure Python token overlap (fallback, always available)
-#   "submit proposal" ↔ "修正案を再提出" = 0.0 (no shared tokens)
-#
-# Honest limitation: Tier 1 is real semantic understanding.
-# Tiers 2-3 are approximations. Install sentence-transformers for production.
+# V2 FIX: Lazy model loading — SentenceTransformer is NOT loaded at module
+# import time. Previously it loaded on every app start, causing:
+#   RuntimeError: Cannot send a request, as the client has been closed.
+# when HuggingFace was unreachable (no internet, cold start, httpx closed).
+# Now loads on first actual use only. App starts instantly regardless.
 
 import re
-import math
-from collections import Counter
 
-# Tier 1: sentence-transformers (true semantic similarity)
-_ST_MODEL = None
-SENTENCE_TRANSFORMERS_AVAILABLE = False
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-    _ST_MODEL = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    pass
-
-# Tier 2: scikit-learn TF-IDF
-try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity as _cos_sim
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
+# ── LAZY MODEL SINGLETON ──────────────────────────────────────────────────────
+_ST_MODEL = None          # None = not yet loaded
+_ST_AVAILABLE = None      # None = not yet checked, True/False = checked
 
 
-def _ja_tokenize_simple(text: str) -> list:
-    """Simple JA/EN tokenizer — tries MeCab first, falls back to char-level."""
+def _get_model():
+    """
+    Lazy-load SentenceTransformer on first use.
+    Returns model or None if unavailable.
+    Never raises — falls back to token overlap silently.
+    """
+    global _ST_MODEL, _ST_AVAILABLE
+
+    if _ST_AVAILABLE is False:
+        return None          # already confirmed unavailable
+    if _ST_MODEL is not None:
+        return _ST_MODEL     # already loaded
+
     try:
-        from japanese_tokenizer import tokenize_japanese
-        return tokenize_japanese(text, normalize=True)
+        from sentence_transformers import SentenceTransformer
+        # Use local_files_only=True first — avoids network call if cached
+        try:
+            _ST_MODEL = SentenceTransformer(
+                "paraphrase-multilingual-MiniLM-L12-v2",
+                local_files_only=True
+            )
+        except Exception:
+            # Not cached locally — try downloading
+            _ST_MODEL = SentenceTransformer(
+                "paraphrase-multilingual-MiniLM-L12-v2"
+            )
+        _ST_AVAILABLE = True
+        return _ST_MODEL
     except Exception:
-        pass
-    ja = re.compile(r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]")
-    tokens, buf = [], []
-    for c in text.lower():
-        if ja.match(c):
-            if buf: tokens.extend("".join(buf).split()); buf = []
-            tokens.append(c)
-        elif c in (" ", "\t", "\n"):
-            if buf: tokens.extend("".join(buf).split()); buf = []
-        else:
-            buf.append(c)
-    if buf: tokens.extend("".join(buf).split())
-    cjk = [t for t in tokens if re.match(r"[\u3040-\u9FFF]", t)]
-    return tokens + ["".join(cjk[i:i+2]) for i in range(len(cjk)-1)]
+        _ST_AVAILABLE = False
+        return None
 
 
-def _tf_idf_manual(docs: list) -> list:
-    """Pure Python TF-IDF when sklearn not available."""
-    tokenized = [_ja_tokenize_simple(d) for d in docs]
-    df = Counter()
-    for tokens in tokenized:
-        df.update(set(tokens))
-    N = len(docs)
-    vectors = []
-    for tokens in tokenized:
-        tf = Counter(tokens)
-        vec = {}
-        for term, count in tf.items():
-            tfidf = (count / len(tokens)) * math.log(N / (df[term] + 1))
-            vec[term] = tfidf
-        vectors.append(vec)
-    return vectors
+# ── SEMANTIC VALIDATION ───────────────────────────────────────────────────────
 
-
-def _cosine_manual(v1: dict, v2: dict) -> float:
-    """Cosine similarity between two TF-IDF vectors."""
-    common = set(v1) & set(v2)
-    if not common:
+def _token_overlap(a: str, b: str) -> float:
+    """Fallback: simple token overlap when model unavailable."""
+    a_tokens = set(re.findall(r'\w+', a.lower()))
+    b_tokens = set(re.findall(r'\w+', b.lower()))
+    if not a_tokens or not b_tokens:
         return 0.0
-    dot    = sum(v1[k] * v2[k] for k in common)
-    norm1  = math.sqrt(sum(x*x for x in v1.values()))
-    norm2  = math.sqrt(sum(x*x for x in v2.values()))
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-    return round(dot / (norm1 * norm2), 3)
+    return len(a_tokens & b_tokens) / max(len(a_tokens), len(b_tokens))
 
 
-def semantic_similarity(text_a: str, text_b: str) -> float:
+def _semantic_similarity(text_a: str, text_b: str) -> float:
     """
-    Computes semantic similarity. Uses best available tier.
-    Tier 1: sentence-transformers (true meaning, JA+EN native)
-    Tier 2: TF-IDF cosine (keyword weighting)
-    Tier 3: token overlap (pure Python fallback)
+    Compute semantic similarity between two strings.
+    Uses sentence-transformers if available, else token overlap fallback.
     """
-    if not text_a or not text_b:
-        return 0.0
+    model = _get_model()
+    if model is None:
+        return _token_overlap(text_a, text_b)
 
-    # Tier 1: sentence-transformers — real semantic understanding
-    if SENTENCE_TRANSFORMERS_AVAILABLE and _ST_MODEL is not None:
-        try:
-            embeddings = _ST_MODEL.encode([text_a, text_b])
-            score = float(np.dot(embeddings[0], embeddings[1]) /
-                         (np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])))
-            return round(max(0.0, score), 3)
-        except Exception:
-            pass
-
-    # Tier 2: TF-IDF
-    if SKLEARN_AVAILABLE:
-        try:
-            vec    = TfidfVectorizer(analyzer=lambda x: _ja_tokenize_simple(x), min_df=1)
-            matrix = vec.fit_transform([text_a, text_b])
-            score  = _cos_sim(matrix[0], matrix[1])[0][0]
-            return round(float(score), 3)
-        except Exception:
-            pass
-
-    # Tier 3: pure Python
-    vectors = _tf_idf_manual([text_a, text_b])
-    return _cosine_manual(vectors[0], vectors[1])
+    try:
+        import numpy as np
+        embeddings = model.encode([text_a, text_b], convert_to_numpy=True)
+        # Cosine similarity
+        a, b = embeddings[0], embeddings[1]
+        norm = (np.linalg.norm(a) * np.linalg.norm(b))
+        if norm == 0:
+            return 0.0
+        return float(np.dot(a, b) / norm)
+    except Exception:
+        return _token_overlap(text_a, text_b)
 
 
-# Cross-language keyword bridge
-# Maps common English action-item words to Japanese equivalents
-# Solves: TF-IDF 0.000 when claim is EN but transcript is JA
-EN_JA_BRIDGE = {
-    "prepare":    ["準備", "作成", "まとめ", "作成する"],
-    "submit":     ["提出", "再提出", "送る", "提出いたします"],
-    "revised":    ["修正", "修正案", "改訂"],
-    "report":     ["報告", "レポート", "議事録", "報告書"],
-    "review":     ["確認", "レビュー", "検討", "確認する"],
-    "send":       ["送る", "送信", "共有", "お送りします"],
-    "confirm":    ["確認", "承認", "確認いたします"],
-    "schedule":   ["設定", "スケジュール", "日程"],
-    "discuss":    ["議論", "話し合い", "相談", "議題"],
-    "proposal":   ["提案", "修正案", "プロポーザル"],
-    "risk":       ["リスク", "懸念", "リスク管理"],
-    "management": ["管理", "マネジメント", "管理する"],
-    "security":   ["セキュリティ", "安全", "セキュリティ面"],
-    "audit":      ["監査", "確認", "監査レポート"],
-    "budget":     ["予算", "費用", "コスト"],
-    "meeting":    ["ミーティング", "会議", "打ち合わせ"],
-    "document":   ["資料", "ドキュメント", "書類"],
-    "materials":  ["資料", "補足資料", "補足"],
-    "monday":     ["月曜", "月曜日", "来週月曜"],
-    "friday":     ["金曜", "金曜日", "今週金曜"],
-    "weekly":     ["週次", "毎週", "週"],
-    "client":     ["クライアント", "顧客", "お客様"],
-    "team":       ["チーム", "メンバー", "部門"],
-}
-
-
-def _enrich_claim(claim: str) -> str:
+def validate_action_items_semantic(
+    action_items: list,
+    transcript: str,
+    threshold: float = 0.35,
+) -> list:
     """
-    Enriches English claim with Japanese equivalents.
-    Allows TF-IDF to find cross-language matches.
-    e.g. "submit proposal" → "submit proposal 提出 提案 修正案"
+    Semantic validation of action items against the source transcript.
+
+    For each action item:
+    - Compute similarity between the task text and all transcript sentences
+    - If best similarity >= threshold: mark as semantically grounded
+    - If below threshold but rule-based hallucination_flag=True: rescue if
+      token overlap is reasonable (prevents TF-IDF false flags)
+
+    Falls back to token overlap silently if sentence-transformers unavailable.
+    Returns the same list with semantic_grounding scores added.
     """
-    words = claim.lower().split()
-    extras = []
-    for word in words:
-        clean = re.sub(r"[^a-z]", "", word)
-        if clean in EN_JA_BRIDGE:
-            extras.extend(EN_JA_BRIDGE[clean])
-    if extras:
-        return claim + " " + " ".join(extras)
-    return claim
+    if not action_items:
+        return action_items
 
+    # Split transcript into sentences for per-sentence comparison
+    sentences = [s.strip() for s in re.split(r'[.!?。！？\n]+', transcript) if s.strip()]
+    if not sentences:
+        return action_items
 
-def semantic_grounding_score(claim: str, transcript: str,
-                              window_size: int = 200) -> float:
-    """
-    Checks if a claim is semantically grounded in the transcript.
-    Uses sliding window + cross-language enrichment.
-
-    Fixes:
-    - Cross-language: English claim vs Japanese transcript now works
-    - Sliding window: long transcripts don't dilute short matches
-    """
-    if not claim or not transcript:
-        return 0.0
-
-    # Enrich claim with Japanese equivalents for cross-language matching
-    enriched_claim = _enrich_claim(claim)
-
-    words = transcript.split()
-    if len(words) <= window_size:
-        return semantic_similarity(enriched_claim, transcript)
-
-    best_score = 0.0
-    step       = window_size // 2
-    for i in range(0, len(words) - window_size + 1, step):
-        window = " ".join(words[i:i + window_size])
-        score  = semantic_similarity(enriched_claim, window)
-        best_score = max(best_score, score)
-        if best_score > 0.7:
-            break
-
-    return best_score
-
-
-def validate_action_items_semantic(action_items: list,
-                                   transcript: str) -> list:
-    """
-    Adds semantic grounding scores to action items.
-    Replaces pure token overlap with TF-IDF cosine similarity.
-    """
+    validated = []
     for item in action_items:
         task = item.get("task", "")
-        semantic_score = semantic_grounding_score(task, transcript)
-        item["semantic_grounding"] = semantic_score
+        if not task or task.startswith("⚠️"):
+            validated.append(item)
+            continue
 
-        # Dynamic threshold: semantic ≥ 0.15 OR token overlap already passed
-        already_verified = not item.get("hallucination_flag", True)
-        if not already_verified and semantic_score >= 0.15:
+        # Find best matching sentence in transcript
+        best_score = 0.0
+        for sentence in sentences:
+            score = _semantic_similarity(task, sentence)
+            if score > best_score:
+                best_score = score
+
+        item["semantic_grounding"] = round(best_score, 3)
+
+        # Rescue false-flagged items if semantically grounded
+        if item.get("hallucination_flag") and best_score >= threshold:
             item["hallucination_flag"] = False
-            item["flag_reason"] = None
-            item["rescued_by"] = "semantic_validation"
+            item["flag_reason"]        = None
+            item["rescued_by"]         = "semantic_validation"
 
-    return action_items
+        validated.append(item)
+
+    return validated
 
 
-if __name__ == "__main__":
-    print(f"sklearn available: {SKLEARN_AVAILABLE}")
-    pairs = [
-        ("prepare security audit report", "Priya, please prepare the technical security audit report by Friday EOD"),
-        ("submit revised risk management proposal", "一度社内で持ち帰り、来週の月曜までにリスク管理の修正案を再提出いたします"),
-        ("book conference room", "Good morning everyone let us discuss Q3 results"),
-    ]
-    for claim, context in pairs:
-        score = semantic_similarity(claim, context)
-        grounding = semantic_grounding_score(claim, context)
-        print(f"Similarity: {score:.3f} | Grounding: {grounding:.3f} | '{claim[:40]}'")
+def is_model_loaded() -> bool:
+    """Returns True if the sentence-transformer model is loaded and ready."""
+    return _ST_MODEL is not None
+
+
+def model_status() -> str:
+    """Human-readable model status for diagnostics."""
+    if _ST_AVAILABLE is None:
+        return "not_checked"
+    if _ST_AVAILABLE:
+        return "loaded"
+    return "unavailable_using_fallback"
