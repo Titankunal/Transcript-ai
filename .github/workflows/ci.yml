@@ -49,7 +49,14 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MOCK_MODE: "true"
         run: |
+          set +e
           pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 5 ]; then
+            echo "No tests collected — exit 0"
+            exit 0
+          fi
+          exit $EXIT_CODE
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
