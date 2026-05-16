@@ -64,7 +64,7 @@ def test_hallucination_verify_action_items_empty():
 
 def test_hallucination_verify_action_items_fabricated():
     from analysis.hallucination_guard import verify_action_items
-    items = ["Hire 500 engineers by tomorrow"]
+    items = [{"task": "Hire 500 engineers by tomorrow", "owner": "unknown"}]
     transcript = "We briefly discussed the Q3 report."
     result = verify_action_items(items, transcript)
     assert isinstance(result, dict)
