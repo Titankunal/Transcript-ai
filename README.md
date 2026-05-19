@@ -195,11 +195,13 @@ export GROQ_MODEL=llama-3.1-8b-instant
 
 Custom evaluation system with bilingual ground truth. Cultural corrections applied — standard NLP evaluation incorrectly labels Japanese professional neutral speech as "positive" (Western bias). Ground truth uses `sentiment_acceptable` maps with soft scoring.
 
-| Test case | Baseline (v1) | Current (v4) | Grade |
-| --- | --- | --- | --- |
-| Sales call · JA/EN mixed | 30.8% | **75.7%** | GOOD |
-| Internal meeting · Japanese heavy | 22.2% | **81.6%** | GOOD |
-| Client complaint · tense | 55.9% | **85.8%** | GOOD |
+| Test case | Baseline (v1) | Current (live) | ROUGE-1 | Action F1 | Sentiment | Grade |
+| --- | --- | --- | --- | --- | --- | --- |
+| Sales call · JA/EN mixed | 30.8% | **95.2%** | 0.703 | 1.0 | 1.0 | ✅ EXCELLENT |
+| Internal meeting · Japanese heavy | 22.2% | **81.6%** | — | — | — | ✅ GOOD |
+| Client complaint · tense | 55.9% | **85.8%** | — | — | — | ✅ GOOD |
+
+> Live scores verified on HF Space · May 2026. Sales call sub-scores: Action Clarity 25/25 · AI Confidence 15/20 · Communication Risk 0/25.
 
 **Iteration history:**
 
@@ -207,6 +209,7 @@ Custom evaluation system with bilingual ground truth. Cultural corrections appli
 * v2 → fuzzy names, rule-based code-switch, semantic similarity: +15–20%
 * v3 → cultural ground truth, JA tokenization, soft sentiment: +10–15%
 * v4 → hallucination guard bonus, bilingual action items, speaker fix: +8–12%
+* v5 → live verified · Sales call reached 95.2% overall
 
 Each improvement was driven by what the evaluation metrics revealed — not guesswork.
 
