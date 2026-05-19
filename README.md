@@ -2,7 +2,7 @@
 title: TranscriptAI
 emoji: 🧠
 colorFrom: pink
-colorTo: orange
+colorTo: red
 sdk: streamlit
 sdk_version: "1.32.0"
 python_version: "3.10"
