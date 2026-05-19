@@ -1,6 +1,6 @@
 ---
 title: TranscriptAI
-emoji: í¾™ï¸
+emoji: í¾¤
 colorFrom: pink
 colorTo: orange
 sdk: streamlit
@@ -10,8 +10,13 @@ app_file: app.py
 pinned: false
 ---
 
-# TranscriptAI í¾™ï¸
+# TranscriptAI
 Japanese Business Intelligence Platform â€” Speech & Meeting Analyzer
+
+[![Python](https://img.shields.io/badge/Python-3.10%2B-C45C74?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Live%20UI-D96080?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Groq](https://img.shields.io/badge/Groq-Free%20Tier-B87830?style=flat-square)](https://console.groq.com)
+[![License](https://img.shields.io/badge/License-MIT-A8897C?style=flat-square)](https://github.com/aiKunalBisht/Transcript-ai/blob/main/LICENSE)
 
 **Languages:** English Â· Hindi Â· Japanese Â· Mixed  
 **Analysis:** Formality Â· Indirect Signals Â· Soft Rejection Â· Code-switch Â· APPI Compliant
