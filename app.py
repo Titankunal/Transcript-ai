@@ -1,8 +1,16 @@
 """
-app.py — TranscriptAI
+app.py — TranscriptAI  v7.1
 Japanese Business Intelligence Platform
 
 Run: python -m streamlit run app.py
+
+v7.1 FIXES (app.py side):
+  FIX-A: _cold_start_tasks no longer calls st.secrets inside a background thread
+          (st.secrets is not thread-safe). Reads key from os.getenv only.
+  FIX-B: Mock warning block now checks _last_error from results so the user
+          sees the actual reason instead of the generic "Demo mode active." message.
+  FIX-C: Added a small debug expander under the warning so the provider status
+          is visible without needing to open HF Logs.
 """
 import sys
 import os
@@ -58,7 +66,6 @@ try:
 except ImportError:
     LANGUAGE_INTEL_AVAILABLE = False
 
-# Import new language-specific NLP layers
 try:
     from analysis.english_analyzer import detect_english_patterns
     ENGLISH_NLP_AVAILABLE = True
@@ -128,7 +135,6 @@ st.markdown("""
     --amber-bg:     #FAF0E0;
 }
 
-/* ── Base reset ─────────────────────────────────────────────── */
 html, body, [class*="css"] {
     font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
     color: var(--ink) !important;
@@ -136,12 +142,10 @@ html, body, [class*="css"] {
     scroll-behavior: smooth;
 }
 
-/* ── Smooth global transitions ──────────────────────────────── */
 *, *::before, *::after {
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── App background ─────────────────────────────────────────── */
 .stApp {
     background-color: var(--washi) !important;
     background-image:
@@ -151,7 +155,6 @@ html, body, [class*="css"] {
         url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D96080' fill-opacity='0.018'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") !important;
 }
 
-/* ── Hide the deploy toolbar (black bar at top) ─────────────── */
 [data-testid="stToolbar"],
 [data-testid="stHeader"],
 [data-testid="stDecoration"],
@@ -161,7 +164,6 @@ header[data-testid="stHeader"] {
     height: 0 !important;
 }
 
-/* ── Sidebar ────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
     background-color: #FDF8F5 !important;
     border-right: 1px solid var(--border) !important;
@@ -175,7 +177,6 @@ header[data-testid="stHeader"] {
 [data-testid="stSidebar"] span,
 [data-testid="stSidebar"] label { color: var(--ink-mid) !important; }
 
-/* ── Kill ALL dark backgrounds injected by Streamlit ───────── */
 .block-container { background: transparent !important; padding-top: 1rem !important; }
 [data-testid="stVerticalBlock"],
 [data-testid="stHorizontalBlock"],
@@ -183,7 +184,6 @@ header[data-testid="stHeader"] {
 section.main > div,
 .main > div { background: transparent !important; }
 
-/* ── File uploader — the biggest offender ──────────────────── */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] > div,
 [data-testid="stFileUploader"] section,
@@ -210,7 +210,6 @@ section.main > div,
     fill: var(--sakura-light) !important;
     color: var(--sakura-light) !important;
 }
-/* Browse files button inside uploader */
 [data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploadDropzone"] button,
 [data-testid="stFileUploader"] button {
@@ -227,7 +226,6 @@ section.main > div,
     color: var(--ink-soft) !important;
 }
 
-/* ── Textarea ────────────────────────────────────────────────── */
 textarea,
 .stTextArea textarea,
 div[data-baseweb="textarea"],
@@ -251,7 +249,6 @@ div[data-baseweb="textarea"]:focus-within textarea {
     outline: none !important;
 }
 
-/* ── Selectbox ───────────────────────────────────────────────── */
 div[data-baseweb="select"] > div,
 div[data-baseweb="select"] input {
     background-color: var(--surface) !important;
@@ -266,12 +263,10 @@ li[role="option"] {
 }
 li[role="option"]:hover { background: var(--sakura-pale) !important; }
 
-/* ── Toggle ──────────────────────────────────────────────────── */
 [data-testid="stToggle"] input:checked + div {
     background-color: var(--sakura) !important;
 }
 
-/* ── Buttons — refined, not bubbly ──────────────────────────── */
 .stButton > button {
     background: linear-gradient(135deg, var(--sakura) 0%, var(--sakura-deep) 100%) !important;
     color: #FFFDFB !important;
@@ -303,7 +298,6 @@ li[role="option"]:hover { background: var(--sakura-pale) !important; }
 .stButton > button:hover::after { opacity: 1 !important; }
 .stButton > button:active { transform: scale(0.97) translateY(0) !important; }
 
-/* Download button — outlined style */
 [data-testid="stDownloadButton"] button {
     background-color: transparent !important;
     color: var(--sakura-deep) !important;
@@ -315,7 +309,6 @@ li[role="option"]:hover { background: var(--sakura-pale) !important; }
     box-shadow: none !important;
 }
 
-/* ── Progress bar ────────────────────────────────────────────── */
 .stProgress > div > div {
     background-color: var(--border) !important;
     border-radius: 999px !important;
@@ -327,7 +320,6 @@ li[role="option"]:hover { background: var(--sakura-pale) !important; }
     box-shadow: 0 0 8px rgba(217,96,128,0.35) !important;
 }
 
-/* ── Tabs ────────────────────────────────────────────────────── */
 [data-testid="stTabs"] [role="tablist"] {
     border-bottom: 1px solid var(--border) !important;
     background: transparent !important;
@@ -358,7 +350,6 @@ li[role="option"]:hover { background: var(--sakura-pale) !important; }
     background: rgba(217,96,128,0.04) !important;
 }
 
-/* ── Expander ────────────────────────────────────────────────── */
 [data-testid="stExpander"] {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
@@ -370,10 +361,8 @@ li[role="option"]:hover { background: var(--sakura-pale) !important; }
 }
 [data-testid="stExpander"] summary:hover { color: var(--sakura) !important; }
 
-/* ── Spinner ─────────────────────────────────────────────────── */
 [data-testid="stSpinner"] > div { border-top-color: var(--sakura) !important; }
 
-/* ── Alerts ──────────────────────────────────────────────────── */
 .stAlert { border-radius: 8px !important; }
 div[data-testid="stAlert"][data-baseweb="notification"] {
     background: var(--sakura-pale) !important;
@@ -382,12 +371,10 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     color: var(--ink-mid) !important;
 }
 
-/* ── Markdown text ───────────────────────────────────────────── */
 .stMarkdown p, .stMarkdown li, .stMarkdown span {
     color: var(--ink-mid) !important;
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
@@ -397,11 +384,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--sakura-deep); }
 
-/* ════════════════════════════════════════════════════════════════
-   CUSTOM COMPONENTS
-   ════════════════════════════════════════════════════════════════ */
-
-/* Cards */
 .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -417,7 +399,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     transform: translateY(-1px);
 }
 
-/* Metric cards */
 .metric-card {
     background: linear-gradient(135deg, var(--surface) 0%, var(--sakura-pale) 100%);
     border: 1px solid var(--border);
@@ -443,7 +424,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     font-weight: 600;
 }
 
-/* Section headers */
 .sh {
     font-size: 0.67rem; font-weight: 700;
     color: var(--ink-soft); letter-spacing: 0.16em;
@@ -457,7 +437,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     background-clip: text;
 }
 
-/* Action items */
 .action-row {
     display: flex; align-items: flex-start; gap: 0.85rem;
     background: var(--surface);
@@ -481,7 +460,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 .action-meta { font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.3rem; }
 .action-flag { font-size: 0.74rem; color: var(--red); margin-top: 0.25rem; }
 
-/* Sentiment rows */
 .sentiment-row {
     display: flex; align-items: center; gap: 1rem;
     background: var(--surface); border: 1px solid var(--border);
@@ -498,7 +476,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 .sentiment-name  { font-weight: 500; font-size: 0.89rem; color: var(--ink); min-width: 130px; }
 .sentiment-label { font-size: 0.78rem; color: var(--ink-soft); flex: 1; font-style: italic; }
 
-/* Badges */
 .badge {
     display: inline-block; padding: 0.22rem 0.8rem;
     border-radius: 999px; font-size: 0.68rem; font-weight: 700;
@@ -511,7 +488,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 .badge-neutral  { background: var(--peach-bg); color: var(--ink-mid); border: 1px solid rgba(120,80,64,0.15); }
 .badge-negative { background: var(--red-bg);   color: var(--red); border: 1px solid rgba(176,64,64,0.2); }
 
-/* Cultural signal boxes */
 .signal-high {
     background: var(--red-bg);
     border-left: 3px solid var(--red);
@@ -540,7 +516,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     margin-top: 0.4rem; line-height: 1.6;
 }
 
-/* Speaker bars */
 .spk-bar-bg {
     background: var(--border); border-radius: 999px;
     height: 7px; overflow: hidden; margin-top: 0.4rem;
@@ -552,7 +527,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
 
-/* PII pill */
 .pii-pill {
     display: inline-flex; align-items: center; gap: 0.4rem;
     background: var(--green-bg); border: 1px solid #A8C8B5;
@@ -560,7 +534,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     font-size: 0.74rem; color: var(--green); font-weight: 500; margin-bottom: 1rem;
 }
 
-/* Risk pills */
 .risk-pill {
     display: inline-block; padding: 0.28rem 0.9rem;
     border-radius: 999px; font-size: 0.71rem; font-weight: 700;
@@ -572,7 +545,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 .risk-MINIMAL { background: var(--peach-bg);  color: var(--ink-soft);    }
 .risk-NONE    { background: var(--green-bg);  color: var(--green);       }
 
-/* Sakura divider - decorative */
 .sakura-divider {
     border: none;
     border-top: 1px solid var(--border);
@@ -580,7 +552,6 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     position: relative;
 }
 
-/* ── Sidebar always visible — never collapse ──────────────────────────────── */
 [data-testid="stSidebar"] {
     display: flex !important;
     visibility: visible !important;
@@ -588,13 +559,11 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
     min-width: 240px !important;
     max-width: 320px !important;
 }
-/* Hide collapse/expand buttons — sidebar is always open */
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"] {
     display: none !important;
 }
 
-/* Previous session card */
 .prev-session-card {
     background: var(--surface-warm);
     border: 1px solid var(--border-mid);
@@ -628,7 +597,6 @@ try:
         SAMPLE_TRILINGUAL, SAMPLE_HIGH_CONFLICT, SAMPLE_HINGLISH_STANDUP
     )
 except ImportError:
-    # Fallback if tests/ not in path
     SAMPLE_TRILINGUAL = """Rahul: Good morning everyone. Aaj hum Q3 product launch ke baare mein discuss karenge.
 Priya: Haan, main ready hoon. Mujhe kuch concerns hain about the timeline.
 田中: おはようございます。よろしくお願いいたします。
@@ -661,7 +629,7 @@ Priya: Main help kar sakti hoon. Kal tak fix ho jayega, 100% committed hoon.
 Vikram: Main bhi karta hoon sir. Upar se baat karta hoon agar koi blocker aaya.
 Sharma Sir: Seedha mujhe batao. Aap jo theek samjhe karo, but kal tak complete chahiye."""
 
-SAMPLE_TRANSCRIPT = SAMPLE_TRILINGUAL   # default sample
+SAMPLE_TRANSCRIPT = SAMPLE_TRILINGUAL
 
 # ── Session state ────────────────────────────────────────────────────────────
 for k, v in [
@@ -672,43 +640,24 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ── Cold start: Groq warmup + sample transcript pre-cache ────────────────────
+# ── Cold start: Groq warmup ──────────────────────────────────────────────────
 if not st.session_state.groq_warmed:
     import threading
 
     def _cold_start_tasks():
         """
-        Runs in background on first app load:
-        1. Warms Groq TCP connection
-        2. Pre-caches sample transcript in vector DB if not already stored
-        Both tasks are silent — never block the app.
+        Runs in background on first app load.
+        FIX-A: Only reads key from os.getenv — st.secrets is NOT thread-safe.
+        FIX-6: Warmup ping removed — was burning 20-29 of 30 daily Groq calls
+                on a "hi" → 1 token request that added zero user value.
+                Groq's servers are always warm — no ping needed.
         """
+        # Pre-cache sample transcripts in vector DB so first demo loads instantly
         try:
-            # Task 1: Groq warmup
-            import os, requests as _r
-            key = os.getenv("GROQ_API_KEY","")
-            if not key:
-                try:
-                    key = st.secrets.get("GROQ_API_KEY","")
-                except Exception:
-                    pass
-            if key:
-                _r.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {key}",
-                             "Content-Type": "application/json"},
-                    json={"model":"llama-3.3-70b-versatile",
-                          "messages":[{"role":"user","content":"hi"}],
-                          "max_tokens":1},
-                    timeout=8
-                )
-        except Exception:
-            pass
-
-        try:
-            # Task 2: Pre-cache all sample transcripts
             from utils.vector_cache import get_cached_result, store_result, is_available
             from analysis.analyzer import analyze_transcript as _analyze
+            import os as _os
+            key = _os.getenv("GROQ_API_KEY", "").strip()
             if is_available() and key:
                 samples_to_cache = [
                     (SAMPLE_TRILINGUAL,       "mixed"),
@@ -720,7 +669,7 @@ if not st.session_state.groq_warmed:
                         _cached = get_cached_result(_s_text, _s_lang)
                         if not _cached:
                             _result = _analyze(_s_text, _s_lang)
-                            if "mock" not in _result.get("_provider",""):
+                            if "mock" not in _result.get("_provider", ""):
                                 store_result(_s_text, _s_lang, _result)
                     except Exception:
                         pass
@@ -729,7 +678,6 @@ if not st.session_state.groq_warmed:
 
     threading.Thread(target=_cold_start_tasks, daemon=True).start()
     st.session_state.groq_warmed = True
-
 
 
 # ── Hamburger only ────────────────────────────────────────────────────────────
@@ -749,11 +697,9 @@ _NAV_HTML = """
     if (a) { a.click(); }
   }
 
-  // Click a hidden Streamlit button by its key (data-testid contains key)
   function clickHidden(btnId) {
     var btn = document.getElementById(btnId);
     if (btn) { btn.click(); return true; }
-    // Streamlit wraps buttons — try finding by text
     var allBtns = document.querySelectorAll('button');
     for (var i = 0; i < allBtns.length; i++) {
       if (allBtns[i].getAttribute('data-nav') === btnId) {
@@ -776,13 +722,11 @@ _NAV_HTML = """
     var hbg = document.getElementById('tai-hbg');
     if (!hbg) { setTimeout(attach, 400); return; }
 
-    // Hamburger — toggle sidebar + X animation
     hbg.onclick = function() {
       hbg.classList.toggle('tai-hbg-open');
       toggleSidebar();
     };
 
-    // Analyze — scroll to top input
     var navA = document.getElementById('nav-analyze');
     if (navA) {
       navA.onclick = function(e) {
@@ -791,7 +735,6 @@ _NAV_HTML = """
       };
     }
 
-    // History — open sidebar
     var navH = document.getElementById('nav-history');
     if (navH) {
       navH.onclick = function() {
@@ -806,12 +749,10 @@ _NAV_HTML = """
       };
     }
 
-    // Trends — click hidden Streamlit button __nav_trends
     var navT = document.getElementById('nav-trends');
     if (navT) {
       navT.onclick = function() {
         setActive('nav-trends');
-        // Find the hidden nav button Streamlit rendered
         var allBtns = document.querySelectorAll('button');
         for (var i = 0; i < allBtns.length; i++) {
           if (allBtns[i].innerText.trim() === '__nav_trends__') {
@@ -822,7 +763,6 @@ _NAV_HTML = """
       };
     }
 
-    // Evaluate — click hidden Streamlit button __nav_evaluate
     var navE = document.getElementById('nav-evaluate');
     if (navE) {
       navE.onclick = function() {
@@ -909,7 +849,6 @@ with st.sidebar:
 
     st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1rem 0;'/>", unsafe_allow_html=True)
 
-    # Vector cache status
     try:
         from utils.vector_cache import get_cache_stats
         vc = get_cache_stats()
@@ -944,24 +883,18 @@ with st.sidebar:
 # ────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='padding:2rem 0 1.6rem; position:relative;'>
-
-  <!-- Decorative accent -->
   <div style='position:absolute; top:1.5rem; right:2rem; opacity:0.15;
               font-size:2.5rem; line-height:1; user-select:none;'>🎙️</div>
-
   <div style='font-size:0.62rem; color:#C8A898; letter-spacing:0.2em;
               text-transform:uppercase; margin-bottom:0.8rem; font-weight:500;'>
     Speech &amp; Meeting Intelligence
   </div>
-
   <div style='display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:0.7rem;'>
     <h1 style='font-size:2.1rem; font-weight:600; color:#3C2416;
                margin:0; letter-spacing:-0.025em; line-height:1;'>
       TranscriptAI
     </h1>
-
   </div>
-
   <div style='display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;'>
     <span style='font-size:0.75rem; color:#D96080; background:#FDEEF2;
                  padding:0.2rem 0.7rem; border-radius:999px; font-weight:500;
@@ -1103,21 +1036,54 @@ if run_analysis and final_text:
     st.session_state.current_transcript = final_text
     st.session_state.current_language   = active_lang
 
-    provider = results.get("_provider", "")
-    duration = results.get("_duration_ms", 0)
+    provider   = results.get("_provider", "")
+    duration   = results.get("_duration_ms", 0)
+    last_error = results.get("_last_error", "")
 
-    # Vector cache hit — show instant load message
     if results.get("_from_vector_cache"):
         sim = results.get("_cache_similarity", 0)
         st.success(f"⚡ Loaded from vector cache · {sim:.0%} match · instant")
     elif "mock" in provider:
-        msgs = {
-            "no_key":  "No API key — add GROQ_API_KEY for real analysis.",
-            "timeout": "Analysis timed out. Try a shorter transcript.",
-            "offline": "Ollama offline. Start Ollama or add GROQ_API_KEY.",
-        }
-        reason = next((msgs[k] for k in msgs if k in provider), "Demo mode active.")
-        st.warning(f"⚠ {reason}")
+        # ── FIX-B + FIX-7: show actual reason + AI summary if available ──
+        groq_key_present = bool(os.getenv("GROQ_API_KEY", "").strip())
+        has_ai_summary   = results.get("_has_ai_summary", False)
+
+        if "no_key" in provider or not groq_key_present:
+            warn_msg = (
+                "No GROQ_API_KEY found. "
+                "Go to your HuggingFace Space → Settings → Repository secrets "
+                "and add **GROQ_API_KEY** with your key from console.groq.com (free)."
+            )
+        elif "rate_limit" in provider or "429" in last_error:
+            if has_ai_summary:
+                warn_msg = (
+                    "Daily API limit reached — showing AI-generated summary below. "
+                    "Full structured analysis (action items, sentiment, speakers) resumes in 24 hours."
+                )
+            else:
+                warn_msg = (
+                    "Daily API limit reached — demo data shown. "
+                    "Full analysis resumes automatically within 24 hours."
+                )
+        elif "timeout" in provider or "timeout" in last_error.lower():
+            warn_msg = "Groq request timed out. Try a shorter transcript (under 800 words)."
+        elif "offline" in provider or "connection" in last_error.lower():
+            warn_msg = "Could not reach Groq API. Check network or try again in a moment."
+        else:
+            warn_msg = f"Analysis ran in demo mode. {last_error or 'AI provider unavailable.'}"
+
+        st.warning(f"⚠ {warn_msg}")
+
+        # FIX-C: debug expander
+        with st.expander("🔍 Debug info", expanded=False):
+            st.code(
+                f"provider   : {provider}\n"
+                f"groq_key   : present={groq_key_present}\n"
+                f"has_ai_sum : {has_ai_summary}\n"
+                f"last_error : {last_error or 'none'}\n"
+                f"duration   : {duration}ms",
+                language="text",
+            )
     else:
         st.success(f"✓ Analysis complete · {provider} · {duration/1000:.1f}s")
 
@@ -1142,26 +1108,12 @@ if STREAMING_AVAILABLE and stream_mode and final_text and not run_analysis:
             st.error(str(e))
 
 # ────────────────────────────────────────────────────────────────────────────
-# RESULTS
-# ────────────────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────────────────
 # MEETING HEALTH SCORE
 # ────────────────────────────────────────────────────────────────────────────
 def compute_health_score(R: dict) -> dict:
-    """
-    Computes a 0-100 meeting health score from existing analysis signals.
-
-    Components:
-      Sentiment score       30 pts  — positive speakers weighted higher
-      Action item clarity   25 pts  — verified items with owners + deadlines
-      Soft rejection risk   25 pts  — NONE=25, MINIMAL=20, LOW=15, MEDIUM=8, HIGH=0
-      Hallucination rate    20 pts  — 0% = 20pts, scales down linearly
-    """
     score = 0
     breakdown = {}
 
-    # ── 1. Sentiment (30 pts) ─────────────────────────────────────────────────
     sentiment = R.get("sentiment", [])
     if sentiment:
         weights = {"positive": 1.0, "neutral": 0.6, "negative": 0.1}
@@ -1169,14 +1121,13 @@ def compute_health_score(R: dict) -> dict:
                   for s in sentiment) / len(sentiment)
         s_pts = round(avg * 30)
     else:
-        s_pts = 15  # neutral default if no sentiment
+        s_pts = 15
     score += s_pts
     breakdown["sentiment"] = s_pts
 
-    # ── 2. Action item clarity (25 pts) ──────────────────────────────────────
     items = R.get("action_items", [])
     if not items:
-        a_pts = 10  # meeting happened but no tasks — partial credit
+        a_pts = 10
     else:
         verified = [i for i in items if not i.get("hallucination_flag", False)]
         with_owner    = sum(1 for i in verified
@@ -1188,7 +1139,6 @@ def compute_health_score(R: dict) -> dict:
     score += a_pts
     breakdown["action_clarity"] = a_pts
 
-    # ── 3. Soft rejection risk (25 pts) ──────────────────────────────────────
     soft = R.get("soft_rejections", {})
     risk = soft.get("risk_level", "NONE")
     risk_pts = {"NONE": 25, "MINIMAL": 20, "LOW": 15, "MEDIUM": 8, "HIGH": 0}
@@ -1196,14 +1146,12 @@ def compute_health_score(R: dict) -> dict:
     score += r_pts
     breakdown["soft_rejection"] = r_pts
 
-    # ── 4. Hallucination rate (20 pts) ───────────────────────────────────────
     verification = R.get("verification", {})
     hall_rate = verification.get("overall_hallucination_risk", 0)
     h_pts = round((1 - hall_rate) * 20)
     score += h_pts
     breakdown["hallucination"] = h_pts
 
-    # ── Label ─────────────────────────────────────────────────────────────────
     if score >= 80:
         label, color, bg, border = "Productive Meeting", "#486858", "#EDF3EF", "#A8C8B8"
     elif score >= 60:
@@ -1241,7 +1189,6 @@ if st.session_state.results:
 
     st.markdown("<hr style='border:none; border-top:1px solid #EDE0D8; margin:1.6rem 0 1rem;'/>", unsafe_allow_html=True)
 
-    # PII pill
     if pii_rep and pii_rep.get("total_pii_found", 0) > 0:
         n = pii_rep["total_pii_found"]
         st.markdown(
@@ -1255,7 +1202,6 @@ if st.session_state.results:
         unsafe_allow_html=True,
     )
 
-    # Stats row
     ji = R.get("japan_insights", {})
     m1, m2, m3, m4 = st.columns(4)
     with m1:
@@ -1276,17 +1222,14 @@ if st.session_state.results:
 
     st.markdown("<div style='height:0.7rem'></div>", unsafe_allow_html=True)
 
-    # ── Meeting Health Score ───────────────────────────────────────────────────
     hs = compute_health_score(R)
     bd = hs["breakdown"]
 
-    # Bar widths for breakdown
     sent_w  = round(bd["sentiment"]      / 30 * 100)
     act_w   = round(bd["action_clarity"] / 25 * 100)
     risk_w  = round(bd["soft_rejection"] / 25 * 100)
     hall_w  = round(bd["hallucination"]  / 20 * 100)
 
-    # ── Health score card — split into small markdown calls to avoid f-string/CSS conflicts
     c_score, c_div, c_bars = st.columns([0.18, 0.01, 0.81])
 
     with c_score:
@@ -1341,7 +1284,6 @@ if st.session_state.results:
     )
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Dynamic tabs ──────────────────────────────────────────────────────────
     tab_labels = ["📝  Summary", "✅  Actions", "🌸  Sentiment", "🎤  Speakers"]
     if features.get("insight_tab_enabled"):
         tab_labels.append(features.get("insight_tab_label", "🌐  Insights"))
@@ -1356,7 +1298,6 @@ if st.session_state.results:
     t_sentiment = tabs[2]
     t_speakers  = tabs[3]
 
-
     idx         = 4
     t_insights  = tabs[idx] if features.get("insight_tab_enabled") else None
     if features.get("insight_tab_enabled"): idx += 1
@@ -1369,8 +1310,6 @@ if st.session_state.results:
         full_summary = R.get("full_summary", "")
         bullets      = R.get("summary", [])
 
-        # ── Resolve previous session data ─────────────────────────────────────
-        # history[0] = current analysis (just added), history[1] = previous
         history = st.session_state.history
         prev_data = None
         if len(history) >= 2:
@@ -1380,7 +1319,6 @@ if st.session_state.results:
             prev_bullets = prev_results.get("summary", [])
             prev_ts      = prev_entry.get("timestamp", "")
             prev_snippet = prev_entry.get("snippet", "")
-            # Only show if there's actual content
             if prev_full or prev_bullets:
                 try:
                     prev_label = datetime.fromisoformat(prev_ts).strftime("%b %d · %H:%M") if prev_ts else "Previous"
@@ -1388,12 +1326,11 @@ if st.session_state.results:
                     prev_label = "Previous"
                 prev_data = {
                     "full":    prev_full,
-                    "bullets": prev_bullets[:3],   # cap at 3 for compact view
+                    "bullets": prev_bullets[:3],
                     "label":   prev_label,
                     "snippet": prev_snippet,
                 }
 
-        # ── 1. Full narrative summary ──────────────────────────────────────────
         if full_summary:
             st.markdown("<div class='sh'>Meeting Overview</div>", unsafe_allow_html=True)
             st.markdown(
@@ -1411,7 +1348,6 @@ if st.session_state.results:
                 unsafe_allow_html=True,
             )
 
-        # ── 2. Key bullet points (existing behaviour, unchanged) ───────────────
         st.markdown(
             f"<div class='sh'>{len(bullets)} Key Point{'s' if len(bullets) != 1 else ''}</div>",
             unsafe_allow_html=True,
@@ -1426,7 +1362,6 @@ if st.session_state.results:
                 unsafe_allow_html=True,
             )
 
-        # ── 3. Previous session summary ────────────────────────────────────────
         if prev_data:
             st.markdown(
                 "<hr style='border:none; border-top:1px solid var(--border); margin:1.4rem 0 1rem;'/>",
@@ -1437,7 +1372,6 @@ if st.session_state.results:
                 unsafe_allow_html=True,
             )
 
-            # Show previous full summary if it exists, else fall back to bullets
             if prev_data["full"]:
                 st.markdown(
                     f"""<div class='prev-session-card'>
@@ -1550,13 +1484,12 @@ if st.session_state.results:
                     unsafe_allow_html=True,
                 )
 
-    # ── Insights (Japan / Hindi / none) ───────────────────────────────────────
+    # ── Insights ──────────────────────────────────────────────────────────────
     if t_insights is not None:
         with t_insights:
             if features.get("show_japan_insights"):
                 st.markdown("<div class='sh'>Communication Intelligence · Formality &amp; Signal Analysis</div>", unsafe_allow_html=True)
 
-                # Keigo
                 keigo  = ji.get("keigo_level","—")
                 k_src  = ji.get("keigo_source","llm")
                 k_color= {"high":"#C45C74","medium":"#B07D3A","low":"#A8897C"}.get(keigo,"#A8897C")
@@ -1569,7 +1502,6 @@ if st.session_state.results:
                     unsafe_allow_html=True,
                 )
 
-                # Nemawashi signals
                 sigs = ji.get("nemawashi_signals",[])
                 st.markdown(
                     f"<div style='font-size:0.79rem; font-weight:500; color:#7A5C50; margin:0.6rem 0 0.5rem;'>"
@@ -1588,7 +1520,6 @@ if st.session_state.results:
                 else:
                     st.markdown("<div style='color:#C4A99E; font-size:0.83rem;'>No nemawashi signals detected.</div>", unsafe_allow_html=True)
 
-                # Code switching
                 if features.get("show_code_switch"):
                     cs = ji.get("code_switch_count", 0)
                     st.markdown(
@@ -1602,7 +1533,6 @@ if st.session_state.results:
                     if cs > 5:
                         st.info(f"High code-switching ({cs}×) — globally-oriented team or international client context.")
 
-                # Soft rejection
                 soft = R.get("soft_rejections",{})
                 if soft and soft.get("total_signals",0) > 0:
                     risk = soft.get("risk_level","NONE")
@@ -1651,7 +1581,6 @@ if st.session_state.results:
                         unsafe_allow_html=True,
                     )
 
-                # PII report
                 if pii_rep and pii_rep.get("total_pii_found",0) > 0:
                     st.markdown(
                         "<div style='font-size:0.79rem; font-weight:500; color:#7A5C50; margin:1rem 0 0.5rem;'>"
@@ -1661,8 +1590,8 @@ if st.session_state.results:
                     by_cat = pii_rep.get("by_category",{})
                     if by_cat:
                         cols = st.columns(len(by_cat))
-                        for idx,(cat,cnt) in enumerate(by_cat.items()):
-                            with cols[idx]:
+                        for idx2,(cat,cnt) in enumerate(by_cat.items()):
+                            with cols[idx2]:
                                 st.markdown(
                                     f"<div class='metric-card'>"
                                     f"<div class='metric-value' style='font-size:1.5rem;'>{cnt}</div>"
@@ -1699,7 +1628,6 @@ if st.session_state.results:
                         f"{hi.get('cultural_note','')}</div>",
                         unsafe_allow_html=True,
                     )
-
             else:
                 st.markdown(
                     "<div style='color:#C4A99E; font-size:0.85rem; padding:1.2rem 0; line-height:1.7;'>"
@@ -1754,7 +1682,7 @@ if st.session_state.results:
                 with st.expander("Full report (JSON)"):
                     st.json(report)
 
-    # ── Trends ───────────────────────────────────────────────────────────────
+    # ── Trends ────────────────────────────────────────────────────────────────
     if t_trends is not None:
         with t_trends:
             st.markdown("<div class='sh'>Meeting Intelligence Trends</div>", unsafe_allow_html=True)
@@ -1777,57 +1705,30 @@ if st.session_state.results:
                     unsafe_allow_html=True
                 )
 
-                # Alerts — most important, shown first
                 for alert_key in ["soft_rejection_alert","hallucination_alert","duration_alert"]:
                     alert = trends.get(alert_key)
                     if alert:
                         st.warning(alert)
 
-                # Summary metric cards
                 m1, m2, m3, m4 = st.columns(4)
                 with m1:
                     sr_pct = trends["high_soft_rejection_pct"]
                     color  = "var(--red)" if sr_pct > 30 else "var(--sakura-deep)"
-                    st.markdown(
-                        f"<div class='metric-card'>"
-                        f"<div class='metric-value' style='color:{color};'>{sr_pct}%</div>"
-                        f"<div class='metric-label'>High Risk Meetings</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                    st.markdown(f"<div class='metric-card'><div class='metric-value' style='color:{color};'>{sr_pct}%</div><div class='metric-label'>High Risk Meetings</div></div>", unsafe_allow_html=True)
                 with m2:
                     hr = trends["avg_hallucination_pct"]
                     color = "var(--red)" if hr > 25 else "var(--sakura-deep)"
-                    st.markdown(
-                        f"<div class='metric-card'>"
-                        f"<div class='metric-value' style='color:{color};'>{hr}%</div>"
-                        f"<div class='metric-label'>Avg Hallucination Rate</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                    st.markdown(f"<div class='metric-card'><div class='metric-value' style='color:{color};'>{hr}%</div><div class='metric-label'>Avg Hallucination Rate</div></div>", unsafe_allow_html=True)
                 with m3:
-                    st.markdown(
-                        f"<div class='metric-card'>"
-                        f"<div class='metric-value'>{trends['avg_action_items']}</div>"
-                        f"<div class='metric-label'>Avg Action Items</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{trends['avg_action_items']}</div><div class='metric-label'>Avg Action Items</div></div>", unsafe_allow_html=True)
                 with m4:
                     dur = trends["avg_duration_sec"]
                     color = "var(--red)" if dur > 60 else "var(--sakura-deep)"
                     dur_str = f"{dur:.0f}s" if dur < 60 else f"{dur/60:.1f}m"
-                    st.markdown(
-                        f"<div class='metric-card'>"
-                        f"<div class='metric-value' style='color:{color};'>{dur_str}</div>"
-                        f"<div class='metric-label'>Avg Analysis Time</div>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
+                    st.markdown(f"<div class='metric-card'><div class='metric-value' style='color:{color};'>{dur_str}</div><div class='metric-label'>Avg Analysis Time</div></div>", unsafe_allow_html=True)
 
                 st.markdown("<div style='height:1.2rem'></div>", unsafe_allow_html=True)
 
-                # Soft rejection trend — most valuable business signal
                 st.markdown("<div class='sh'>🎭 Soft Rejection Risk Trend</div>", unsafe_allow_html=True)
                 sr_trend   = trends["soft_rejection_trend"]
                 sr_scores  = trends["soft_rejection_scores"]
@@ -1839,7 +1740,6 @@ if st.session_state.results:
                     f"Trend: {trend_icon}</div>",
                     unsafe_allow_html=True
                 )
-                # Visual bar chart of soft rejection scores
                 for i, (ts, score) in enumerate(zip(trends["timestamps"][-10:], sr_scores[-10:])):
                     bar_w   = max(score * 20, 2)
                     bar_col = ["var(--green-bg)","var(--green-bg)","var(--amber-bg)","var(--amber-bg)","var(--red-bg)"][min(score,4)]
@@ -1857,7 +1757,6 @@ if st.session_state.results:
 
                 st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
-                # Two-column distributions
                 col_l, col_r = st.columns(2)
 
                 with col_l:
@@ -1909,7 +1808,6 @@ if st.session_state.results:
 
                 st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
-                # Provider breakdown
                 st.markdown("<div class='sh'>⚡ Provider Usage</div>", unsafe_allow_html=True)
                 prov_dist  = trends.get("provider_dist", {})
                 prov_total = sum(prov_dist.values()) or 1
@@ -1932,7 +1830,6 @@ if st.session_state.results:
                             unsafe_allow_html=True
                         )
 
-                # Last 10 action item counts — workload trend
                 st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
                 st.markdown("<div class='sh'>✅ Action Items per Meeting (last 10)</div>", unsafe_allow_html=True)
                 ai_counts = trends["action_item_counts"][-10:]
