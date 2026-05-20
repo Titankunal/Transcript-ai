@@ -132,7 +132,7 @@ check("GROQ_API_KEY set",
       bool(groq_key),
       f"Key starts with: {groq_key[:8]}..." if groq_key else "NOT SET — mock mode will be used")
 
-provider = os.getenv("TRANSCRIPT_AI_PROVIDER", "auto")
+provider = os.getenv("TRANSCRIPT_AI_PROVIDER", "ollama")
 check("TRANSCRIPT_AI_PROVIDER",
       True,
       f"Current value: '{provider}'")
@@ -244,7 +244,7 @@ try:
 
     # Restore original provider
     if groq_key:
-        os.environ["TRANSCRIPT_AI_PROVIDER"] = "auto"
+        os.environ["TRANSCRIPT_AI_PROVIDER"] = "ollama"
 
 except Exception as e:
     check("Quick analysis test", False, str(e)[:120])
