@@ -1656,9 +1656,15 @@ if st.session_state.results:
                     pred   = analyze_transcript(
                         tc["transcript"],
                         tc["language"],
-                        bypass_cache=True  # always fresh — prevents all 3 cases returning same cached result
+                        bypass_cache=True
                     )
-                    report = evaluate(pred, tc["ground_truth"], tc["transcript"])
+                    report = evaluate(
+                        pred,
+                        tc["ground_truth"],
+                        tc["transcript"],
+                        tc_name=tc["name"],
+                        provider=pred.get("_provider", "unknown")
+                    )
 
                 overall = report.get("overall_score", 0)
                 c1,c2,c3,c4 = st.columns(4)

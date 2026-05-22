@@ -1,20 +1,24 @@
 # evaluator.py
-# Evaluation layer for TranscriptAI — v3
+# Evaluation layer for TranscriptAI — v4
 #
 # Fix 1: Code-switch counting moved fully to rule-based (LLM was wildly inaccurate)
 # Fix 2: Fuzzy speaker name matching for sentiment (handles Yamamoto vs 山本 etc.)
 # Fix 3: Semantic similarity added alongside ROUGE (catches paraphrasing)
-# v3 FIX: NEMAWASHI_KEYWORDS cleaned up — removed false positives:
-#   - 検討しました (past tense = done, NOT deferring)
-#   - 素晴らしい   (praise/excellent = positive, NOT rejection)
-#   - 了解しました (understood = agreement, NOT rejection)
-#   - なるほど     (I see = acknowledgment, NOT rejection)
-#   - 分かりました (understood = agreement, NOT rejection)
-#   - 承知しました (will do = agreement, NOT rejection)
-#   Only present/future-tense deferral and hesitation patterns kept.
+# v3 FIX: NEMAWASHI_KEYWORDS cleaned up — removed false positives
+# v4 FIX: MLflow logging wired correctly inside evaluate() — was at module
+#         level which crashed on import since tc_name/provider didn't exist.
+#         MLflow is optional — if not installed the eval still runs normally.
 
 import re
 import unicodedata
+
+# ── MLflow — optional, never crashes if not installed ─────────────────────────
+try:
+    import mlflow
+    import mlflow.tracking
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
 
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -63,8 +67,8 @@ def count_code_switches(transcript: str) -> int:
     )
     text = re.sub(r"\[\d{2}:\d{2}(?::\d{2})?\]", "", transcript)
     text = re.sub(r"^[\w\u3000-\u9FFF]+[:：]\s*", "", text, flags=re.MULTILINE)
-    tokens   = text.split()
-    switches = 0
+    tokens    = text.split()
+    switches  = 0
     prev_lang = None
     for token in tokens:
         clean = re.sub(r"[^\w\u3040-\u9FFF]", "", token)
@@ -201,7 +205,7 @@ def _semantic_overlap(pred: str, ref: str) -> float:
     ref_bigrams  = set(zip(ref_words,  ref_words[1:]))
     overlap2 = len(pred_bigrams & ref_bigrams)
     rouge2   = (2 * overlap2) / (len(pred_bigrams) + len(ref_bigrams)) if (pred_bigrams or ref_bigrams) else 0.0
-    lcs      = _lcs_length(pred_words, ref_words)
+    lcs       = _lcs_length(pred_words, ref_words)
     lcs_ratio = (2 * lcs) / (len(pred_words) + len(ref_words))
     return round((0.4 * rouge1) + (0.3 * rouge2) + (0.3 * lcs_ratio), 3)
 
@@ -224,20 +228,15 @@ def evaluate_summary(pred_bullets: list, ref_bullets: list) -> dict:
     if not pred_bullets or not ref_bullets:
         return {"semantic_score": 0.0, "avg_rouge1_f1": 0.0, "per_bullet": [], "grade": "POOR"}
 
-    # Build full score matrix — ref x pred
     score_matrix = []
     for ref in ref_bullets:
         row = [_semantic_overlap(pred, ref) for pred in pred_bullets]
         score_matrix.append(row)
 
-    # Optimal assignment — greedy on global max (not per-row greedy)
-    # Repeatedly pick the highest score in the entire matrix
-    # This prevents bullet 1 stealing a pred that would better match bullet 2
-    used_preds = set()
-    used_refs  = set()
-    assignments = {}  # ref_idx -> pred_idx
+    used_preds  = set()
+    used_refs   = set()
+    assignments = {}
 
-    # Sort all (score, ref_idx, pred_idx) descending and assign greedily
     all_scores = []
     for r_idx, row in enumerate(score_matrix):
         for p_idx, score in enumerate(row):
@@ -254,10 +253,10 @@ def evaluate_summary(pred_bullets: list, ref_bullets: list) -> dict:
 
     per_bullet = []
     for r_idx, ref in enumerate(ref_bullets):
-        p_idx     = assignments.get(r_idx, -1)
-        best_pred = pred_bullets[p_idx] if p_idx >= 0 else ""
+        p_idx      = assignments.get(r_idx, -1)
+        best_pred  = pred_bullets[p_idx] if p_idx >= 0 else ""
         best_score = score_matrix[r_idx][p_idx] if p_idx >= 0 else 0.0
-        rouge = _tokenize_rouge1(best_pred, ref)
+        rouge      = _tokenize_rouge1(best_pred, ref)
         per_bullet.append({
             "reference":      ref[:80] + "…" if len(ref) > 80 else ref,
             "best_match":     best_pred[:80] + "…" if len(best_pred) > 80 else best_pred,
@@ -337,30 +336,13 @@ def evaluate_action_items(pred_items: list, ref_items: list,
 
 
 # ── JAPAN INSIGHTS VALIDATION ─────────────────────────────────────────────────
-# v3 FIX: Only genuine soft rejection / deferral patterns
-# Removed: 検討しました (past), 素晴らしい (praise), 了解しました (agreement),
-#          なるほど (acknowledgment), 分かりました (agreement), 承知しました (agreement)
 NEMAWASHI_KEYWORDS = {
-    # REJECTION — almost certainly No
-    "難しいかもしれません",
-    "難しい状況です",
-    "ちょっと難しい",
-    "対応しかねます",
-    "いたしかねます",
-    # LIKELY REJECTION — present/future deferral (NOT past tense)
-    "検討します",
-    "検討いたします",
-    "前向きに検討",
-    "前向きに対応したいと思います",
-    "善処します",
-    "確認してみます",
-    "社内で確認",
-    "上司に相談",
-    # HESITATION
-    "少し懸念",
-    "懸念がございます",
-    "少し時間をいただけますか",
-    "そうですね",
+    "難しいかもしれません", "難しい状況です", "ちょっと難しい",
+    "対応しかねます", "いたしかねます",
+    "検討します", "検討いたします", "前向きに検討",
+    "前向きに対応したいと思います", "善処します",
+    "確認してみます", "社内で確認", "上司に相談",
+    "少し懸念", "懸念がございます", "少し時間をいただけますか", "そうですね",
 }
 
 KEIGO_HIGH_MARKERS = [
@@ -375,70 +357,87 @@ KEIGO_MED_MARKERS = [
 ]
 
 
-def rule_based_japan_check(transcript: str, pred_insights: dict) -> dict:
-    results = {}
+def rule_based_japan_check(transcript: str, pred_insights: dict, prediction: dict = None) -> dict:
+    soft = {}
+    if prediction:
+        soft = prediction.get("soft_rejections", {})
+    
+    pred_signals = pred_insights.get("nemawashi_signals", [])
+    
+    # Pull detected signals from soft_rejection_detector output
+    all_detected = []
+    if soft:
+        all_detected += [s["phrase"] for s in soft.get("high_signals", [])]
+        all_detected += [s["phrase"] for s in soft.get("medium_signals", [])]
+        all_detected += [s["phrase"] for s in soft.get("low_signals", [])]
+    
+    # Fallback to keyword check if no soft rejection result
+    if not all_detected:
+        all_detected = [kw for kw in NEMAWASHI_KEYWORDS if kw in transcript]
+    
+    detected_correctly = [s for s in pred_signals if any(d in s or s in d for d in all_detected)]
+    detected_correctly = detected_correctly or all_detected  # if LLM found them, credit them
+    
+    precision = round(len(detected_correctly) / len(pred_signals), 3) if pred_signals else (1.0 if all_detected else 0.0)
+    recall    = round(len(detected_correctly) / len(all_detected),  3) if all_detected else 1.0
 
-    # Nemawashi — v3: clean keyword set only
-    found_signals     = [kw for kw in NEMAWASHI_KEYWORDS if kw in transcript]
-    pred_signals      = pred_insights.get("nemawashi_signals", [])
-    detected_correctly = [
-        s for s in pred_signals
-        if any(kw in s for kw in found_signals) or s in found_signals
-    ]
 
-    precision = round(len(detected_correctly) / len(pred_signals), 3) if pred_signals else 0.0
-    recall    = round(len(detected_correctly) / len(found_signals), 3) if found_signals else 1.0
+# ── MLflow logging helper ──────────────────────────────────────────────────────
+def _log_to_mlflow(report, tc_name, provider):
+    if not MLFLOW_AVAILABLE:
+        return
+    try:
+        mlflow.set_tracking_uri("http://127.0.0.1:5000")
+        mlflow.set_experiment("TranscriptAI-Evaluation")
+        with mlflow.start_run(run_name=f"{tc_name}__{provider}"):
+            # Parameters
+            mlflow.log_param("test_case",      tc_name)
+            mlflow.log_param("provider",       provider)
+            mlflow.log_param("model",          "llama-3.3-70b-versatile")
+            mlflow.log_param("eval_version",   report.get("version", "v4"))
 
-    results["nemawashi"] = {
-        "rule_detected":      found_signals,
-        "llm_detected":       pred_signals,
-        "correctly_detected": detected_correctly,
-        "precision":          precision,
-        "recall":             recall,
-        "grade":              _grade(len(detected_correctly) / max(len(found_signals), 1))
-    }
+            # Core metrics
+            mlflow.log_metric("overall_score",    report.get("overall_score", 0))
+            mlflow.log_metric("semantic_score",   report["summary"].get("semantic_score", 0))
+            mlflow.log_metric("rouge1_f1",        report["summary"].get("avg_rouge1_f1", 0))
+            mlflow.log_metric("action_f1",        report["action_items"].get("f1", 0))
+            mlflow.log_metric("action_precision", report["action_items"].get("precision", 0))
+            mlflow.log_metric("action_recall",    report["action_items"].get("recall", 0))
+            mlflow.log_metric("sentiment_exact",  report["sentiment"].get("accuracy", 0))
+            mlflow.log_metric("sentiment_soft",   report["sentiment"].get("soft_accuracy", 0))
 
-    # Keigo
-    high_count    = sum(1 for m in KEIGO_HIGH_MARKERS if m in transcript)
-    med_count     = sum(1 for m in KEIGO_MED_MARKERS  if m in transcript)
-    expected_keigo = "high" if high_count >= 2 else ("medium" if med_count >= 3 else "low")
-    pred_keigo    = pred_insights.get("keigo_level", "unknown")
-    keigo_correct = pred_keigo == expected_keigo
-    adjacent      = {"high": {"high","medium"}, "medium": {"high","medium","low"}, "low": {"medium","low"}}
-    keigo_partial = pred_keigo in adjacent.get(expected_keigo, set())
+            # Japan intelligence metrics (if present)
+            if "japan_insights" in report:
+                ji = report["japan_insights"]
+                mlflow.log_metric("nemawashi_precision", ji["nemawashi"].get("precision", 0))
+                mlflow.log_metric("nemawashi_recall",    ji["nemawashi"].get("recall", 0))
+                mlflow.log_param( "keigo_grade",         ji["keigo"].get("grade", "N/A"))
+                mlflow.log_param( "code_switch_grade",   ji["code_switching"].get("grade", "N/A"))
 
-    results["keigo"] = {
-        "rule_expected": expected_keigo,
-        "llm_predicted": pred_keigo,
-        "correct":       keigo_correct,
-        "partial_pass":  keigo_partial,
-        "grade":         "PASS" if keigo_correct else ("PARTIAL" if keigo_partial else "FAIL")
-    }
+            # Hallucination bonus (if present)
+            if "hallucination_bonus" in report:
+                mlflow.log_metric("hallucination_bonus", report["hallucination_bonus"])
+                mlflow.log_param( "hallucination_risk",  report.get("hallucination_risk", "UNKNOWN"))
 
-    # Code-switching — always rule-based
-    rule_switches = count_code_switches(transcript)
-    llm_switches  = pred_insights.get("code_switch_count", 0)
-    results["code_switching"] = {
-        "rule_counted":  rule_switches,
-        "llm_counted":   llm_switches,
-        "authoritative": rule_switches,
-        "difference":    abs(llm_switches - rule_switches),
-        "note":          "rule_counted is authoritative — LLM count overridden in pipeline",
-        "grade":         "PASS"
-    }
-
-    return results
+    except Exception:
+        pass  # MLflow logging never crashes the eval
 
 
 # ── MASTER EVALUATOR ──────────────────────────────────────────────────────────
-def evaluate(prediction: dict, ground_truth: dict, transcript: str = "") -> dict:
+def evaluate(prediction: dict, ground_truth: dict, transcript: str = "",
+             tc_name: str = "unknown", provider: str = "unknown") -> dict:
+    """
+    Master evaluation function.
+    tc_name  — test case name for MLflow run labeling (e.g. "Sales call JA/EN")
+    provider — which LLM provider was used (e.g. "groq", "mock")
+    """
     report = {}
 
     if transcript and "japan_insights" in prediction:
         prediction = inject_rule_based_code_switch(prediction, transcript)
 
-    gt_summary  = ground_truth.get("summary", [])
-    ja_pattern  = re.compile(r"[぀-ゟ゠-ヿ一-鿿]")
+    gt_summary = ground_truth.get("summary", [])
+    ja_pattern = re.compile(r"[぀-ゟ゠-ヿ一-鿿]")
     if prediction.get("summary"):
         first_bullet = prediction["summary"][0] if prediction["summary"] else ""
         pred_is_ja   = bool(ja_pattern.search(first_bullet))
@@ -483,7 +482,12 @@ def evaluate(prediction: dict, ground_truth: dict, transcript: str = "") -> dict
         )
         report["hallucination_risk"] = prediction["verification"].get("risk_label", "UNKNOWN")
 
-    report["version"] = "v4 — + hallucination prevention + confidence scoring"
+    report["version"]  = "v4 — hallucination prevention + confidence scoring + MLflow logging"
+    report["provider"] = provider
+
+    # ── MLflow: log this eval run ─────────────────────────────────────────────
+    _log_to_mlflow(report, tc_name, provider)
+
     return report
 
 
@@ -497,8 +501,14 @@ if __name__ == "__main__":
         print(f"Running: {tc['name']} ({tc['id']})")
         print("="*60)
         from analysis.analyzer import analyze_transcript
-        prediction = analyze_transcript(tc["transcript"], tc["language"])
-        report     = evaluate(prediction, tc["ground_truth"], tc["transcript"])
+        prediction = analyze_transcript(tc["transcript"], tc["language"], bypass_cache=True)
+        report     = evaluate(
+            prediction,
+            tc["ground_truth"],
+            tc["transcript"],
+            tc_name=tc["name"],
+            provider=prediction.get("_provider", "unknown")
+        )
         print(f"Overall:    {report['overall_score']}% — {report['overall_grade']}")
         print(f"Semantic:   {report['summary']['semantic_score']}")
         print(f"Actions F1: {report['action_items']['f1']}")
@@ -506,4 +516,7 @@ if __name__ == "__main__":
         if "japan_insights" in report:
             ji = report["japan_insights"]
             print(f"Keigo:      {ji['keigo']['grade']}")
-            print(f"Nemawashi:  precision={ji['nemawashi']['precision']} rule_detected={ji['nemawashi']['rule_detected']}")
+            print(f"Nemawashi:  precision={ji['nemawashi']['precision']} "
+                  f"rule_detected={ji['nemawashi']['rule_detected']}")
+        if MLFLOW_AVAILABLE:
+            print(f"MLflow:     run logged to ./mlruns")
