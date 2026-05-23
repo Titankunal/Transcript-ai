@@ -81,4 +81,7 @@ synthetic_test_data.json
 schema_stability_report.json
 *.jsonl
 logs/
-cache/
+cache/mlflow.db
+mlruns/
+mlflow.db-shm
+mlflow.db-wal
