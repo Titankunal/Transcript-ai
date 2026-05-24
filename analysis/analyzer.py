@@ -256,6 +256,7 @@ def _call_groq(prompt: str, max_tokens: int) -> str:
                     "model": GROQ_MODEL,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.1,
+                    "top_p": 0.85,
                     "max_tokens": max_tokens,
                     "response_format": {"type": "json_object"},
                 },
@@ -299,7 +300,8 @@ TRANSCRIPT:
             json={
                 "model":    GROQ_MODEL,
                 "messages": [{"role": "user", "content": stream_prompt}],
-                "temperature": 0.2,
+                "temperature": 0.1,
+                "top_p": 0.85,
                 "max_tokens":  1000,
                 "stream":   True,
             },
@@ -330,7 +332,7 @@ def _call_ollama(prompt: str, max_tokens: int) -> str:
             "prompt":  prompt,
             "stream":  False,
             "format":  "json",
-            "options": {"temperature": 0.1, "num_predict": max_tokens},
+            "options": {"temperature": 0.1, "num_predict": max_tokens, "top_p": 0.85},
             "think":   False
         },
         timeout=90
@@ -350,6 +352,7 @@ def _call_groq_langchain(prompt: str, max_tokens: int) -> str:
         api_key=api_key,
         model=GROQ_MODEL,
         temperature=0.1,
+        top_p=0.85,
         max_tokens=max_tokens,
         timeout=25,
         model_kwargs={"response_format": {"type": "json_object"}},
@@ -367,6 +370,7 @@ def _call_ollama_langchain(prompt: str, max_tokens: int) -> str:
         base_url=OLLAMA_URL.replace("/api/generate", ""),
         model=OLLAMA_MODEL,
         temperature=0.1,
+        top_p=0.85,
         num_predict=max_tokens,
         format="json",
     )

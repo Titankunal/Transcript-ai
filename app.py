@@ -1020,7 +1020,7 @@ if run_analysis and final_text:
             st.session_state.pii_report = get_pii_report(pii_mask)
 
         bar.progress(35, text="Running AI analysis…")
-        with st.spinner("Analyzing · ~3s with Groq · 1–2 min with Ollama"):
+        with st.spinner("Its is working may take some time please wait a moment..."):
             results = analyze_transcript(text_in, active_lang)
 
         if pii_mask is not None:
