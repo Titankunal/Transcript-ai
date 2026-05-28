@@ -1135,7 +1135,7 @@ def _svg_donut(pct: int, color: str, size: int = 56) -> str:
     return (
         f"<svg width='{size}' height='{size}' viewBox='0 0 {size} {size}'>"
         f"<circle cx='{size//2}' cy='{size//2}' r='{r}' fill='none' "
-        f"stroke='rgba(255,255,255,0.1)' stroke-width='6'/>"
+        f"stroke='rgba(60,36,22,0.12)' stroke-width='6'/>"
         f"<circle cx='{size//2}' cy='{size//2}' r='{r}' fill='none' "
         f"stroke='{color}' stroke-width='6' stroke-linecap='round' "
         f"stroke-dasharray='{dash:.1f} {circ:.1f}' "
@@ -1164,13 +1164,13 @@ def _health_ring(score: int, color: str) -> str:
     return (
         f"<div style='text-align:center'>"
         f"<svg width='{size}' height='{size}' viewBox='0 0 {size} {size}'>"
-        f"<circle cx='60' cy='60' r='{r}' fill='none' stroke='rgba(255,255,255,0.08)' stroke-width='10'/>"
+        f"<circle cx='60' cy='60' r='{r}' fill='none' stroke='rgba(60,36,22,0.10)' stroke-width='10'/>"
         f"<circle cx='60' cy='60' r='{r}' fill='none' stroke='{color}' stroke-width='10' "
         f"stroke-linecap='round' stroke-dasharray='{dash:.1f} {circ:.1f}' "
         f"transform='rotate(-90 60 60)' style='filter:drop-shadow(0 0 6px {color}88)'/>"
         f"<text x='50%' y='46%' text-anchor='middle' font-size='22' font-weight='800' "
-        f"fill='white' font-family=Arial>{score}</text>"
-        f"<text x='50%' y='62%' text-anchor='middle' font-size='10' fill='rgba(255,255,255,0.5)' "
+        f"fill='#3C2416' font-family=Arial>{score}</text>"
+        f"<text x='50%' y='62%' text-anchor='middle' font-size='10' fill='#A87868' "
         f"font-family=Arial>/ 100</text></svg>"
         f"<div style='font-size:0.7rem;font-weight:600;color:{color};letter-spacing:0.1em;"
         f"text-transform:uppercase;margin-top:2px'>{label}</div></div>"
@@ -1218,9 +1218,9 @@ def build_results_html(R: dict, language: str, features: dict,
         bars = "".join(
             f"<div style='margin-bottom:8px'>"
             f"<div style='display:flex;justify-content:space-between;margin-bottom:3px'>"
-            f"<span style='font-size:0.68rem;color:rgba(255,255,255,0.6)'>{lb}</span>"
+            f"<span style='font-size:0.68rem;color:#7A5040'>{lb}</span>"
             f"<span style='font-size:0.68rem;color:{color};font-weight:600'>{pt}/{tot}</span></div>"
-            f"<div style='height:5px;background:rgba(255,255,255,0.08);border-radius:999px'>"
+            f"<div style='height:5px;background:rgba(60,36,22,0.10);border-radius:999px'>"
             f"<div style='height:100%;width:{round(pt/tot*100)}%;background:{color};"
             f"border-radius:999px;box-shadow:0 0 6px {color}66'></div></div></div>"
             for lb, pt, tot in bd
@@ -1269,14 +1269,14 @@ def build_results_html(R: dict, language: str, features: dict,
         sum_html += (
             f"<div class='tai-summary-box'>"
             f"<div class='tai-summary-label'>📋 Meeting Overview</div>"
-            f"<p style='margin:0;line-height:1.9;font-size:0.93rem;color:rgba(255,255,255,0.88)'>"
+            f"<p style='margin:0;line-height:1.9;font-size:0.93rem;color:#3C2416'>"
             f"{full_sum}</p></div>"
         )
     sum_html += f"<div class='tai-section-label'>{len(bullets)} Key Points</div>"
     sum_html += "".join(
         f"<div class='tai-bullet-card'>"
         f"<span class='tai-bullet-num'>{i:02d}</span>"
-        f"<span style='color:rgba(255,255,255,0.88);font-size:0.9rem;line-height:1.65'>{b}</span>"
+        f"<span style='color:#3C2416;font-size:0.9rem;line-height:1.65'>{b}</span>"
         f"</div>"
         for i, b in enumerate(bullets, 1)
     )
@@ -1300,17 +1300,17 @@ def build_results_html(R: dict, language: str, features: dict,
             ("⚑" if i.get("hallucination_flag") else "◆") +
             "</div>"
             "<div style='flex:1'>"
-            "<div style='font-weight:600;color:rgba(255,255,255,0.92);font-size:0.9rem;margin-bottom:4px'>" +
+            "<div style='font-weight:600;color:#3C2416;font-size:0.9rem;margin-bottom:4px'>" +
             str(i.get("task","")) + "</div>"
-            "<div style='font-size:0.76rem;color:rgba(255,255,255,0.45)'>"
-            "Owner: <strong style='color:rgba(255,255,255,0.7)'>" + str(i.get("owner","TBD")) + "</strong>"
-            " &nbsp;·&nbsp; Deadline: <strong style='color:rgba(255,255,255,0.7)'>" + str(i.get("deadline","TBD")) + "</strong>" +
+            "<div style='font-size:0.76rem;color:#A87868'>"
+            "Owner: <strong style='color:#7A5040'>" + str(i.get("owner","TBD")) + "</strong>"
+            " &nbsp;·&nbsp; Deadline: <strong style='color:#7A5040'>" + str(i.get("deadline","TBD")) + "</strong>" +
             (f" &nbsp;·&nbsp; {i.get('confidence',0):.0%} confidence" if i.get("confidence") else "") +
-            (f"<div style='color:#C84040;font-size:0.72rem;margin-top:3px'>⚠ {i.get('flag_reason','')}</div>" if i.get("flag_reason") else "") +
+            (f"<div style='color:#963030;font-size:0.72rem;margin-top:3px'>⚠ {i.get('flag_reason','')}</div>" if i.get("flag_reason") else "") +
             "</div></div></div>"
         )
         for i in items
-    ) if items else "<div style='color:rgba(255,255,255,0.3);font-size:0.85rem;padding:1rem 0'>No action items extracted.</div>"
+    ) if items else "<div style='color:#A87868;font-size:0.85rem;padding:1rem 0'>No action items extracted.</div>"
 
     # ── Tab 3: Sentiment ──────────────────────────────────────────────────────
     sent_html = "<div class='tai-section-label'>Speaker Sentiment</div>"
@@ -1319,8 +1319,8 @@ def build_results_html(R: dict, language: str, features: dict,
             "<div class='tai-sent-row'>"
             "<span style='font-size:1.2rem'>" + SENT_ICON.get(s.get("score","neutral").lower(),"🌿") + "</span>"
             "<div style='flex:1'>"
-            "<div style='font-weight:600;color:rgba(255,255,255,0.88);font-size:0.88rem'>" + str(s.get("speaker","")) + "</div>"
-            "<div style='font-size:0.75rem;color:rgba(255,255,255,0.45);font-style:italic;margin-top:1px'>" + str(s.get("label","")) + "</div>"
+            "<div style='font-weight:600;color:#3C2416;font-size:0.88rem'>" + str(s.get("speaker","")) + "</div>"
+            "<div style='font-size:0.75rem;color:#A87868;font-style:italic;margin-top:1px'>" + str(s.get("label","")) + "</div>"
             "</div>"
             "<span class='tai-sent-badge tai-sent-" + s.get("score","neutral").lower() + "'>" +
             s.get("score","neutral").upper() + "</span>"
@@ -1341,12 +1341,12 @@ def build_results_html(R: dict, language: str, features: dict,
             f"{_avatar(nm, col)}"
             f"<div style='flex:1;min-width:0'>"
             f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'>"
-            f"<span style='font-weight:600;color:rgba(255,255,255,0.88);font-size:0.88rem'>{nm}</span>"
+            f"<span style='font-weight:600;color:#3C2416;font-size:0.88rem'>{nm}</span>"
             f"<span style='font-size:0.75rem;color:{col};font-weight:600'>{pct}%</span></div>"
-            f"<div style='height:6px;background:rgba(255,255,255,0.08);border-radius:999px'>"
+            f"<div style='height:6px;background:rgba(60,36,22,0.10);border-radius:999px'>"
             f"<div style='height:100%;width:{pct}%;background:{col};border-radius:999px;"
             f"box-shadow:0 0 8px {col}66;transition:width 0.8s cubic-bezier(0.4,0,0.2,1)'></div></div>"
-            f"<div style='font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:4px'>{tone}</div>"
+            f"<div style='font-size:0.7rem;color:#A87868;margin-top:4px'>{tone}</div>"
             f"</div>"
             f"{_svg_donut(pct, col, 52)}"
             f"</div>"
@@ -1357,29 +1357,29 @@ def build_results_html(R: dict, language: str, features: dict,
     if features.get("show_japan_insights"):
         keigo   = ji.get("keigo_level","—")
         k_src   = ji.get("keigo_source","llm")
-        kc      = {"high":"#E8829A","medium":"#C9924A","low":"rgba(255,255,255,0.5)"}.get(keigo,"#A8897C")
+        kc      = {"high":"#BE4060","medium":"#986820","low":"#A87868"}.get(keigo,"#7A5040")
         sigs    = ji.get("nemawashi_signals",[])
         soft    = R.get("soft_rejections",{})
         risk    = soft.get("risk_level","NONE") if soft else "NONE"
-        rclr    = {"HIGH":"#C84040","MEDIUM":"#C9924A","LOW":"#D96080","MINIMAL":"#A8897C","NONE":"#2D9E6B"}.get(risk,"#2D9E6B")
+        rclr    = {"HIGH":"#963030","MEDIUM":"#986820","LOW":"#BE4060","MINIMAL":"#A87868","NONE":"#2D7A55"}.get(risk,"#2D7A55")
         cs_cnt  = ji.get("code_switch_count",0)
 
         ins_html += (
             "<div style='display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px'>"
             "<div class='tai-insight-chip'>"
-            "<div style='font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Keigo Register</div>"
+            "<div style='font-size:0.6rem;color:#A87868;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Keigo Register</div>"
             f"<div style='font-size:1.1rem;font-weight:700;color:{kc}'>{keigo.upper()}</div>"
-            f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.3)'>via {k_src}</div>"
+            f"<div style='font-size:0.62rem;color:#C8A898'>via {k_src}</div>"
             "</div>"
             "<div class='tai-insight-chip'>"
-            "<div style='font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Rejection Risk</div>"
+            "<div style='font-size:0.6rem;color:#A87868;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Rejection Risk</div>"
             f"<div style='font-size:1.1rem;font-weight:700;color:{rclr}'>{risk}</div>"
-            f"<div style='font-size:0.62rem;color:rgba(255,255,255,0.3)'>{soft.get('total_signals',0)} signals</div>"
+            f"<div style='font-size:0.62rem;color:#C8A898'>{soft.get('total_signals',0)} signals</div>"
             "</div>"
             "<div class='tai-insight-chip'>"
-            "<div style='font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Code Switches</div>"
-            f"<div style='font-size:1.1rem;font-weight:700;color:#F4A07A'>{cs_cnt}</div>"
-            "<div style='font-size:0.62rem;color:rgba(255,255,255,0.3)'>language switches</div>"
+            "<div style='font-size:0.6rem;color:#A87868;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px'>Code Switches</div>"
+            f"<div style='font-size:1.1rem;font-weight:700;color:#E88060'>{cs_cnt}</div>"
+            "<div style='font-size:0.62rem;color:#C8A898'>language switches</div>"
             "</div>"
             "</div>"
         )
@@ -1396,23 +1396,23 @@ def build_results_html(R: dict, language: str, features: dict,
                 ins_html += (
                     f"<div class='tai-sig-high'>"
                     f"<div style='font-weight:700;font-size:0.9rem'>🚨 {sig['phrase']}</div>"
-                    f"<div style='font-size:0.76rem;color:rgba(255,255,255,0.5);margin-top:4px'>"
+                    f"<div style='font-size:0.76rem;color:#7A5040;margin-top:4px'>"
                     f"{sig['reading']} · {sig['speaker']} · {sig['confidence']:.0%}</div>"
-                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.65);margin-top:6px;line-height:1.5'>{sig['explanation']}</div>"
+                    f"<div style='font-size:0.75rem;color:#3C2416;margin-top:6px;line-height:1.5'>{sig['explanation']}</div>"
                     f"</div>"
                 )
             for sig in soft.get("medium_signals",[]):
                 ins_html += (
                     f"<div class='tai-sig-med'>"
                     f"<div style='font-weight:700;font-size:0.9rem'>⚠ {sig['phrase']}</div>"
-                    f"<div style='font-size:0.76rem;color:rgba(255,255,255,0.5);margin-top:4px'>"
+                    f"<div style='font-size:0.76rem;color:#7A5040;margin-top:4px'>"
                     f"{sig['reading']} · {sig['speaker']} · {sig['confidence']:.0%}</div>"
-                    f"<div style='font-size:0.75rem;color:rgba(255,255,255,0.65);margin-top:6px;line-height:1.5'>{sig['explanation']}</div>"
+                    f"<div style='font-size:0.75rem;color:#3C2416;margin-top:6px;line-height:1.5'>{sig['explanation']}</div>"
                     f"</div>"
                 )
-            ins_html += f"<div style='font-size:0.73rem;color:rgba(255,255,255,0.3);font-style:italic;margin-top:8px'>{soft.get('cultural_note','')}</div>"
+            ins_html += f"<div style='font-size:0.73rem;color:#A87868;font-style:italic;margin-top:8px'>{soft.get('cultural_note','')}</div>"
     else:
-        ins_html = "<div style='color:rgba(255,255,255,0.3);font-size:0.85rem;padding:1rem 0;line-height:1.7'>Cultural intelligence features apply to Japanese and Hindi transcripts.</div>"
+        ins_html = "<div style='color:#A87868;font-size:0.85rem;padding:1rem 0;line-height:1.7'>Cultural intelligence features apply to Japanese and Hindi transcripts.</div>"
 
     # ── Assemble full HTML ────────────────────────────────────────────────────
     return f"""
@@ -1420,15 +1420,15 @@ def build_results_html(R: dict, language: str, features: dict,
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {{
-  --glass:     rgba(255,255,255,0.04);
-  --glass-b:   rgba(255,255,255,0.08);
-  --glass-h:   rgba(255,255,255,0.10);
-  --accent:    #E8829A;
-  --accent2:   #F4A07A;
-  --green:     #2D9E6B;
-  --ink:       rgba(255,255,255,0.88);
-  --ink-mid:   rgba(255,255,255,0.55);
-  --ink-soft:  rgba(255,255,255,0.35);
+  --glass:     rgba(60,36,22,0.04);
+  --glass-b:   rgba(60,36,22,0.10);
+  --glass-h:   rgba(60,36,22,0.14);
+  --accent:    #BE4060;
+  --accent2:   #E88060;
+  --green:     #2D7A55;
+  --ink:       #3C2416;
+  --ink-mid:   #7A5040;
+  --ink-soft:  #A87868;
   --r:         14px;
 }}
 .tai-results {{
@@ -1446,8 +1446,8 @@ def build_results_html(R: dict, language: str, features: dict,
   contain: layout style;
 }}
 .tai-glass:hover {{
-  border-color: rgba(232,130,154,0.3);
-  box-shadow: 0 8px 32px rgba(232,130,154,0.08);
+  border-color: rgba(190,64,96,0.25);
+  box-shadow: 0 8px 32px rgba(190,64,96,0.07);
 }}
 .tai-tiles {{
   display: grid;
@@ -1469,8 +1469,8 @@ def build_results_html(R: dict, language: str, features: dict,
 }}
 .tai-tile:hover {{
   transform: translateY(-3px);
-  border-color: rgba(232,130,154,0.35);
-  box-shadow: 0 12px 32px rgba(232,130,154,0.12);
+  border-color: rgba(190,64,96,0.30);
+  box-shadow: 0 12px 32px rgba(190,64,96,0.10);
 }}
 .tai-tile-icon {{ font-size: 1.3rem; margin-bottom: 4px; }}
 .tai-tile-val  {{ font-size: 1.6rem; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; line-height: 1; }}
@@ -1486,36 +1486,43 @@ def build_results_html(R: dict, language: str, features: dict,
   margin-bottom: 16px;
 }}
 @media(max-width:600px) {{ .tai-health {{ grid-template-columns: 1fr; }} }}
-.tai-health-left  {{ padding: 24px 20px; display: flex; align-items: center; justify-content: center; border-right: 1px solid rgba(255,255,255,0.06); }}
+.tai-health-left  {{ padding: 24px 20px; display: flex; align-items: center; justify-content: center; border-right: 1px solid rgba(60,36,22,0.10); }}
 .tai-health-right {{ padding: 20px 24px; }}
 .tai-health-title {{ font-size: 0.6rem; font-weight: 700; color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 14px; }}
-@media(max-width:600px) {{ .tai-health-left {{ border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }} }}
+@media(max-width:600px) {{ .tai-health-left {{ border-right: none; border-bottom: 1px solid rgba(60,36,22,0.10); }} }}
+.tai-tab-radios {{ display: none; }}
 .tai-tab-bar {{
-  display: flex; gap: 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  display: flex; gap: 0;
+  border-bottom: 1px solid rgba(60,36,22,0.12);
+  margin-bottom: 16px; overflow-x: auto;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }}
 .tai-tab-bar::-webkit-scrollbar {{ display: none; }}
-.tai-tab {{
-  padding: 8px 16px;
-  font-size: 0.8rem; font-weight: 500;
-  color: var(--ink-soft); border: none; background: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer; white-space: nowrap;
-  transition: color 0.2s, border-color 0.2s;
+.tai-tab-bar label {{
+  padding: 10px 18px; font-size: 0.8rem; font-weight: 500;
+  color: var(--ink-soft); cursor: pointer;
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s; user-select: none;
 }}
-.tai-tab:hover {{ color: var(--accent); }}
-.tai-tab.active {{ color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }}
+.tai-tab-bar label:hover {{ color: var(--accent); }}
 .tai-tab-content {{ display: none; animation: fadeIn 0.25s ease; }}
-.tai-tab-content.active {{ display: block; }}
 @keyframes fadeIn {{ from{{opacity:0;transform:translateY(6px)}} to{{opacity:1;transform:none}} }}
+#tab-sum:checked ~ .tai-tab-bar label[for="tab-sum"],
+#tab-act:checked ~ .tai-tab-bar label[for="tab-act"],
+#tab-sent:checked ~ .tai-tab-bar label[for="tab-sent"],
+#tab-spk:checked ~ .tai-tab-bar label[for="tab-spk"],
+#tab-ins:checked ~ .tai-tab-bar label[for="tab-ins"] {{
+  color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+}}
+#tab-sum:checked  ~ .tai-panel #tai-sum,
+#tab-act:checked  ~ .tai-panel #tai-act,
+#tab-sent:checked ~ .tai-panel #tai-sent,
+#tab-spk:checked  ~ .tai-panel #tai-spk,
+#tab-ins:checked  ~ .tai-panel #tai-ins {{ display: block; }}
 .tai-section-label {{
   font-size: 0.62rem; font-weight: 700; color: var(--ink-soft);
   letter-spacing: 0.16em; text-transform: uppercase;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(60,36,22,0.12);
   padding-bottom: 8px; margin-bottom: 12px; margin-top: 8px;
 }}
 .tai-summary-box {{
@@ -1558,8 +1565,8 @@ def build_results_html(R: dict, language: str, features: dict,
   will-change: transform;
   color: var(--accent);
 }}
-.tai-action-card:hover {{ transform: translateX(4px); border-left-color: #C84060; }}
-.tai-action-flagged {{ border-left-color: #C84040 !important; background: rgba(200,64,64,0.06) !important; color: #C84040 !important; }}
+.tai-action-card:hover {{ transform: translateX(4px); border-left-color: #963050; }}
+.tai-action-flagged {{ border-left-color: #963030 !important; background: rgba(150,48,48,0.05) !important; color: #963030 !important; }}
 .tai-sent-row {{
   display: flex; align-items: center; gap: 12px;
   background: var(--glass);
@@ -1573,9 +1580,9 @@ def build_results_html(R: dict, language: str, features: dict,
   font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
   padding: 4px 10px; border-radius: 999px;
 }}
-.tai-sent-positive {{ background: rgba(45,158,107,0.15); color: #2D9E6B; border: 1px solid rgba(45,158,107,0.3); }}
-.tai-sent-neutral  {{ background: rgba(168,136,122,0.15); color: #C8A898; border: 1px solid rgba(168,136,122,0.3); }}
-.tai-sent-negative {{ background: rgba(200,64,64,0.15);  color: #E88080; border: 1px solid rgba(200,64,64,0.3); }}
+.tai-sent-positive {{ background: rgba(45,122,85,0.10); color: #2D7A55; border: 1px solid rgba(45,122,85,0.25); }}
+.tai-sent-neutral  {{ background: rgba(120,80,64,0.08); color: #7A5040; border: 1px solid rgba(120,80,64,0.20); }}
+.tai-sent-negative {{ background: rgba(176,64,64,0.10); color: #963030; border: 1px solid rgba(176,64,64,0.25); }}
 .tai-spk-row {{
   display: flex; align-items: center; gap: 14px;
   background: var(--glass);
@@ -1583,7 +1590,7 @@ def build_results_html(R: dict, language: str, features: dict,
   border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
   transition: border-color 0.2s;
 }}
-.tai-spk-row:hover {{ border-color: rgba(232,130,154,0.25); }}
+.tai-spk-row:hover {{ border-color: rgba(190,64,96,0.30); }}
 .tai-insight-chip {{
   background: var(--glass);
   border: 1px solid var(--glass-b);
@@ -1592,32 +1599,32 @@ def build_results_html(R: dict, language: str, features: dict,
 }}
 .tai-nemawashi-pill {{
   display: inline-block;
-  background: rgba(232,130,154,0.1);
-  border: 1px solid rgba(232,130,154,0.25);
+  background: rgba(190,64,96,0.08);
+  border: 1px solid rgba(190,64,96,0.25);
   border-radius: 999px; padding: 5px 14px;
-  font-size: 0.82rem; color: #F2B0C0;
+  font-size: 0.82rem; color: #BE4060;
   font-family: 'Noto Sans JP', sans-serif;
   margin: 0 6px 8px 0;
 }}
 .tai-sig-high {{
-  background: rgba(200,64,64,0.08); border-left: 3px solid #C84040;
+  background: rgba(176,64,64,0.07); border-left: 3px solid #963030;
   border-radius: 0 10px 10px 0; padding: 12px 16px; margin-bottom: 10px;
-  color: rgba(255,255,255,0.85);
+  color: #3C2416;
 }}
 .tai-sig-med {{
-  background: rgba(201,146,74,0.08); border-left: 3px solid #C9924A;
+  background: rgba(152,104,32,0.07); border-left: 3px solid #986820;
   border-radius: 0 10px 10px 0; padding: 12px 16px; margin-bottom: 10px;
-  color: rgba(255,255,255,0.85);
+  color: #3C2416;
 }}
 .tai-pii-pill {{
   display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(45,158,107,0.12); border: 1px solid rgba(45,158,107,0.3);
+  background: rgba(45,122,85,0.10); border: 1px solid rgba(45,122,85,0.30);
   border-radius: 999px; padding: 5px 14px;
-  font-size: 0.73rem; color: #2D9E6B; font-weight: 500; margin-bottom: 14px;
+  font-size: 0.73rem; color: #2D7A55; font-weight: 500; margin-bottom: 14px;
 }}
 .tai-panel {{
-  background: var(--glass);
-  border: 1px solid var(--glass-b);
+  background: rgba(255,254,251,0.85);
+  border: 1px solid rgba(60,36,22,0.10);
   border-radius: var(--r);
   padding: 20px;
 }}
@@ -1639,16 +1646,22 @@ def build_results_html(R: dict, language: str, features: dict,
   </div>
 </div>
 
+<input class="tai-tab-radios" type="radio" name="tai-tabs" id="tab-sum" checked>
+<input class="tai-tab-radios" type="radio" name="tai-tabs" id="tab-act">
+<input class="tai-tab-radios" type="radio" name="tai-tabs" id="tab-sent">
+<input class="tai-tab-radios" type="radio" name="tai-tabs" id="tab-spk">
+<input class="tai-tab-radios" type="radio" name="tai-tabs" id="tab-ins">
+
 <div class="tai-tab-bar">
-  <button class="tai-tab active" onclick="taiTab(this,'sum')">📝 Summary</button>
-  <button class="tai-tab" onclick="taiTab(this,'act')">✅ Actions</button>
-  <button class="tai-tab" onclick="taiTab(this,'sent')">🌸 Sentiment</button>
-  <button class="tai-tab" onclick="taiTab(this,'spk')">🎤 Speakers</button>
-  <button class="tai-tab" onclick="taiTab(this,'ins')">{features.get('insight_tab_label','🌐 Insights')}</button>
+  <label for="tab-sum">📝 Summary</label>
+  <label for="tab-act">✅ Actions</label>
+  <label for="tab-sent">🌸 Sentiment</label>
+  <label for="tab-spk">🎤 Speakers</label>
+  <label for="tab-ins">{features.get('insight_tab_label','🌐 Insights')}</label>
 </div>
 
 <div class="tai-panel">
-  <div id="tai-sum" class="tai-tab-content active">{sum_html}</div>
+  <div id="tai-sum" class="tai-tab-content">{sum_html}</div>
   <div id="tai-act" class="tai-tab-content">{act_html}</div>
   <div id="tai-sent" class="tai-tab-content">{sent_html}</div>
   <div id="tai-spk" class="tai-tab-content">{spk_html}</div>
@@ -1656,16 +1669,6 @@ def build_results_html(R: dict, language: str, features: dict,
 </div>
 
 </div>
-
-<script>
-function taiTab(btn, id) {{
-  document.querySelectorAll('.tai-tab').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tai-tab-content').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
-  var el = document.getElementById('tai-' + id);
-  if(el) el.classList.add('active');
-}}
-</script>
 """
 
 
@@ -1746,7 +1749,7 @@ if st.session_state.results:
     features = get_features(language)
 
     st.markdown(
-        "<hr style='border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1.6rem 0 1rem;'/>",
+        "<hr style='border:none;border-top:1px solid rgba(60,36,22,0.10);margin:1.6rem 0 1rem;'/>",
         unsafe_allow_html=True,
     )
 
@@ -1769,7 +1772,7 @@ if st.session_state.results:
     if EVAL_AVAILABLE:
         with st.expander("📊 Accuracy Evaluation · Ground Truth Comparison"):
             st.markdown(
-                "<div style='font-size:0.82rem;color:rgba(255,255,255,0.5);margin-bottom:1rem'>"
+                "<div style='font-size:0.82rem;color:#7A5040;margin-bottom:1rem'>"
                 "Select a test case with known ground truth to measure analysis accuracy.</div>",
                 unsafe_allow_html=True,
             )
